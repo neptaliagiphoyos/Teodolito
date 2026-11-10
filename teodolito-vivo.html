@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0d1110">
+<title>Teodolito A26 en vivo</title>
+<style>
+:root{
+  --bg:#0d1110; --panel:rgba(16,22,20,.86); --ink:#eef3f0; --muted:#9fb0a8; --line:rgba(255,255,255,.16);
+  --accent:#f0a020; --accent-ink:#1a1305; --base:#ff4d42; --top:#29c7ff; --ok:#5cd18e; --warn:#ffb347;
+  --mono:ui-monospace,"SFMono-Regular","Roboto Mono",Menlo,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden}
+#video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#hud{position:fixed;inset:0;pointer-events:none}
+/* retícula */
+.ret{position:absolute;left:50%;top:50%;width:0;height:0}
+.ret i{position:absolute;background:var(--accent);box-shadow:0 0 2px #000}
+.ret .h1{left:-90px;width:70px;top:-1px;height:2px}.ret .h2{left:20px;width:70px;top:-1px;height:2px}
+.ret .v1{top:-90px;height:70px;left:-1px;width:2px}.ret .v2{top:20px;height:70px;left:-1px;width:2px}
+.ret .c{left:-3px;top:-3px;width:6px;height:6px;border-radius:50%}
+.ret .ring{left:-20px;top:-20px;width:40px;height:40px;border:2px solid var(--accent);background:none;border-radius:50%}
+#horizon{position:absolute;left:50%;top:50%;width:140vmax;height:0;border-top:1.5px dashed rgba(255,230,80,.85);transform-origin:0 0}
+/* barra superior */
+.top{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 10px) max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px));
+  display:flex;gap:10px;justify-content:space-between;align-items:flex-start;background:linear-gradient(rgba(0,0,0,.7),rgba(0,0,0,0));pointer-events:none}
+.read{display:flex;flex-direction:column;gap:0}
+.read .l{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.read .v{font:600 30px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.read .s{font:12px var(--mono);color:var(--muted)}
+.right{text-align:right}
+.bubble{width:64px;height:20px;border:1.5px solid var(--line);border-radius:10px;position:relative;margin-top:4px}
+.bubble b{position:absolute;top:2px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--ok)}
+.bubble:after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;border-left:1px solid var(--muted)}
+/* panel inferior */
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);padding:10px max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) max(14px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:10px}
+.seg{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.seg button{flex:none}
+button{font:600 14px var(--sans);color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:9px;padding:9px 12px;min-height:42px}
+button[aria-pressed="true"]{background:var(--ink);color:#111;border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.shoot{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.shoot button{min-height:54px;font-size:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+.shoot button small{font:12px var(--mono);color:var(--muted);font-weight:400}
+.shoot .b{border-color:var(--base)}.shoot .t{border-color:var(--top)}
+.shoot button.done small{color:var(--ink)}
+.fields{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fields label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.fields input{width:84px;font:600 16px var(--mono);background:rgba(0,0,0,.35);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 8px}
+.res{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.res > div{border:1px solid var(--line);border-radius:9px;padding:6px 10px}
+.res .l{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.res .v{font:600 22px var(--mono);font-variant-numeric:tabular-nums;color:var(--accent)}
+.res .s{font:11px var(--mono);color:var(--muted)}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.tools button{flex:1;min-width:120px;font-size:13px}
+.msg{font-size:13px;color:var(--warn)}
+/* pantalla de inicio */
+#start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px max(18px,env(safe-area-inset-right,0px)) 24px max(18px,env(safe-area-inset-left,0px));background:var(--bg);z-index:10;overflow:auto}
+#start .card{max-width:520px;display:flex;flex-direction:column;gap:14px}
+#start h1{margin:0;font-size:30px;letter-spacing:-.01em}
+#start p,#start li{color:var(--muted);line-height:1.5;margin:0}
+#start ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+#start .go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);min-height:54px;font-size:17px}
+#start .err{color:var(--warn);font-size:14px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<video id="video" playsinline muted autoplay></video>
+<div id="hud" aria-hidden="true">
+  <div id="horizon"></div>
+  <div class="ret"><i class="h1"></i><i class="h2"></i><i class="v1"></i><i class="v2"></i><i class="ring"></i><i class="c"></i></div>
+</div>
+
+<div class="top">
+  <div class="read"><span class="l">Ángulo vertical</span><span class="v" id="elev">—</span><span class="s" id="stab">estabilidad —</span></div>
+  <div class="read right"><span class="l">Rumbo</span><span class="v" id="head">—</span><div class="bubble" style="margin-left:auto"><b id="bub"></b></div><span class="s" id="roll">giro —</span></div>
+</div>
+
+<div class="sheet">
+  <div class="seg" role="group" aria-label="Qué conoces">
+    <button data-mode="A" aria-pressed="true">Altura de mi cámara</button>
+    <button data-mode="B" aria-pressed="false">Distancia D</button>
+    <button data-mode="C" aria-pressed="false">Altura H</button>
+    <button data-mode="Z" aria-pressed="false">Entre 2 puntos</button>
+  </div>
+  <div class="fields">
+    <label id="lA">h₀ (m) <input id="h0" type="number" inputmode="decimal" step="0.01" value="1.50"></label>
+    <label id="lB" hidden>D (m) <input id="dk" type="number" inputmode="decimal" step="0.1" value="10"></label>
+    <label id="lC" hidden>H (m) <input id="hk" type="number" inputmode="decimal" step="0.01" value="3"></label>
+  </div>
+  <div class="shoot">
+    <button class="b" id="bBase"><span id="bBaseT">Apuntar base</span><small id="bBaseV">—</small></button>
+    <button class="t" id="bTop"><span id="bTopT">Apuntar cima</span><small id="bTopV">—</small></button>
+  </div>
+  <div class="res" id="res"></div>
+  <div class="msg" id="msg"></div>
+  <div class="tools">
+    <button id="zero">Calibrar 0° (horizontal)</button>
+    <button id="reset">Nueva medición</button>
+  </div>
+</div>
+
+<div id="start">
+  <div class="card">
+    <h1>Teodolito A26 en vivo</h1>
+    <p>Usa la cámara trasera como anteojo, el acelerómetro como círculo vertical y la brújula como círculo horizontal.</p>
+    <ol>
+      <li>Sostén el celular <b>vertical</b> (modo retrato), con la cámara 1x.</li>
+      <li>Mide la altura de la lente al suelo (h₀). Con trípode es más preciso.</li>
+      <li>Centra la retícula en la <b>base</b> del objeto y toca “Apuntar base”. Luego en la <b>cima</b> y toca “Apuntar cima”.</li>
+      <li>Quédate quieto un segundo antes de tocar: la app promedia las lecturas.</li>
+    </ol>
+    <button class="go" id="go">Iniciar cámara y sensores</button>
+    <p class="err" id="err" hidden></p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const D2R=Math.PI/180, R2D=180/Math.PI;
+  const st={mode:'A', zero:0, base:null, top:null, p1:null, p2:null,
+    elev:null, roll:0, head:null, buf:[], hbuf:[], gx:0, gy:0, gz:0, have:false};
+  try{ const z=parseFloat(localStorage.getItem('teo_zero')); if(isFinite(z)) st.zero=z; }catch(e){}
+
+  // ---------- inicio ----------
+  $('#go').addEventListener('click', async ()=>{
+    const err=$('#err'); err.hidden=true;
+    if(!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      err.hidden=false; err.textContent='El navegador no permite la cámara desde esta dirección. Abre el archivo en Chrome escribiendo file:///sdcard/Download/teodolito-vivo.html en la barra de direcciones, o desde una página https.'; return;
+    }
+    try{
+      if(typeof DeviceMotionEvent!=='undefined' && DeviceMotionEvent.requestPermission){ await DeviceMotionEvent.requestPermission(); }
+      if(typeof DeviceOrientationEvent!=='undefined' && DeviceOrientationEvent.requestPermission){ await DeviceOrientationEvent.requestPermission(); }
+    }catch(e){}
+    try{
+      const s=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1440}}});
+      const v=$('#video'); v.srcObject=s; await v.play().catch(()=>{});
+    }catch(e){ err.hidden=false; err.textContent='No se pudo abrir la cámara ('+(e.name||e)+'). Revisa que Chrome tenga permiso de cámara.'; return; }
+    try{ if(navigator.wakeLock) await navigator.wakeLock.request('screen'); }catch(e){}
+    try{ if(screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); }catch(e){}
+    window.addEventListener('devicemotion',onMotion);
+    if('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute',onOrient);
+    else window.addEventListener('deviceorientation',onOrient);
+    $('#start').hidden=true;
+    setTimeout(()=>{ if(!st.have) showMsg('No llegan datos del acelerómetro. En Chrome: Configuración del sitio > Sensores de movimiento > Permitir.'); },2500);
+    render();
+  });
+
+  // ---------- sensores ----------
+  function onMotion(e){
+    const a=e.accelerationIncludingGravity; if(!a||a.x==null) return;
+    const k=0.15; // filtro paso bajo
+    st.gx+= (a.x-st.gx)*k; st.gy+=(a.y-st.gy)*k; st.gz+=(a.z-st.gz)*k;
+    const n=Math.hypot(st.gx,st.gy,st.gz); if(n<1) return;
+    st.have=true;
+    // eje de la cámara trasera = -Z del equipo; "arriba" = vector medido
+    const el=Math.asin(Math.max(-1,Math.min(1,-st.gz/n)))*R2D;
+    st.elev=el-st.zero;
+    st.roll=Math.atan2(st.gx,st.gy)*R2D; // 0 = vertical
+    st.buf.push(st.elev); if(st.buf.length>40) st.buf.shift();
+  }
+  function onOrient(e){
+    if(e.alpha==null) return;
+    const a=e.alpha*D2R,b=e.beta*D2R,g=e.gamma*D2R;
+    const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),cg=Math.cos(g),sg=Math.sin(g);
+    const E=-ca*sg-sa*sb*cg, N=-sa*sg+ca*sb*cg;
+    let h=Math.atan2(E,N)*R2D; if(h<0) h+=360;
+    st.head=h; st.headAbs=(e.absolute===true)||e.type==='deviceorientationabsolute';
+    st.hbuf.push(h); if(st.hbuf.length>40) st.hbuf.shift();
+  }
+  function mean(arr){ return arr.reduce((s,x)=>s+x,0)/arr.length; }
+  function sd(arr){ const m=mean(arr); return Math.sqrt(arr.reduce((s,x)=>s+(x-m)*(x-m),0)/arr.length); }
+  function circMean(arr){ let s=0,c=0; for(const h of arr){ s+=Math.sin(h*D2R); c+=Math.cos(h*D2R);} let m=Math.atan2(s,c)*R2D; return m<0?m+360:m; }
+  function sample(){
+    if(st.buf.length<10) return null;
+    const last=st.buf.slice(-30);
+    return {el:mean(last), sd:sd(last), head:st.hbuf.length?circMean(st.hbuf.slice(-30)):null};
+  }
+
+  // ---------- interfaz ----------
+  const fm=(x,d=2)=>isFinite(x)?x.toFixed(d).replace('.',','):'—';
+  function showMsg(t){ $('#msg').textContent=t||''; }
+  function render(){
+    if(st.elev!=null){
+      $('#elev').textContent=(st.elev>=0?'+':'')+fm(st.elev,2)+'°';
+      const s=st.buf.length>10?sd(st.buf.slice(-30)):9;
+      const q=s<0.05?'muy estable':s<0.15?'estable':s<0.4?'regular':'moviéndose';
+      $('#stab').textContent='estabilidad '+q+' (±'+fm(s,2)+'°)';
+      $('#stab').style.color=s<0.15?'var(--ok)':s<0.4?'var(--warn)':'var(--base)';
+      const r=Math.max(-25,Math.min(25,st.roll));
+      $('#bub').style.transform='translateX('+(r*0.9)+'px)';
+      $('#bub').style.background=Math.abs(st.roll)<1?'var(--ok)':'var(--warn)';
+      $('#roll').textContent='giro '+fm(st.roll,1)+'°';
+      $('#horizon').style.transform='rotate('+(-st.roll)+'deg) translateX(-50%)';
+      $('#horizon').style.transform='translate(-50%,0) rotate('+(-st.roll)+'deg)';
+      $('#horizon').style.transformOrigin='50% 0';
+      // posición vertical aproximada del horizonte en pantalla (FOV vertical visible ≈ 65°)
+      const v=$('#video'); const fovV=65; const hpx=window.innerHeight;
+      const off=Math.tan(st.elev*D2R)/Math.tan(fovV/2*D2R)*(hpx/2);
+      $('#horizon').style.top=(hpx/2+off)+'px';
+    }
+    if(st.head!=null){ $('#head').textContent=fm(st.head,1)+'°'; }
+    requestAnimationFrame(render);
+  }
+
+  document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{
+    st.mode=b.dataset.mode; document.querySelectorAll('[data-mode]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    $('#lA').hidden=!(st.mode==='A'||st.mode==='Z'); $('#lB').hidden=st.mode!=='B'; $('#lC').hidden=st.mode!=='C';
+    const z=st.mode==='Z';
+    $('#bBaseT').textContent=z?'Base punto 1':'Apuntar base';
+    $('#bTopT').textContent=z?'Base punto 2':'Apuntar cima';
+    resetAll();
+  }));
+  ['#h0','#dk','#hk'].forEach(s=>$(s).addEventListener('input',compute));
+
+  function take(which){
+    const s=sample(); if(!s){ showMsg('Esperando datos de los sensores…'); return; }
+    if(Math.abs(st.roll)>5) showMsg('El celular está girado '+fm(st.roll,1)+'°. Enderézalo para mayor precisión.'); else showMsg('');
+    if(navigator.vibrate) try{navigator.vibrate(30);}catch(e){}
+    st[which]=s;
+    const label=(which==='base'?'#bBaseV':'#bTopV');
+    $(label).textContent=(s.el>=0?'+':'')+fm(s.el,2)+'° ±'+fm(s.sd,2)+(s.head!=null?' · '+fm(s.head,0)+'°':'');
+    $(which==='base'?'#bBase':'#bTop').classList.add('done');
+    compute();
+  }
+  $('#bBase').addEventListener('click',()=>take('base'));
+  $('#bTop').addEventListener('click',()=>take('top'));
+  function resetAll(){ st.base=null; st.top=null; $('#bBaseV').textContent='—'; $('#bTopV').textContent='—';
+    $('#bBase').classList.remove('done'); $('#bTop').classList.remove('done'); $('#res').innerHTML=''; showMsg(''); }
+  $('#reset').addEventListener('click',resetAll);
+  $('#zero').addEventListener('click',()=>{
+    const s=sample(); if(!s) return;
+    st.zero+=s.el; try{localStorage.setItem('teo_zero',String(st.zero));}catch(e){}
+    showMsg('Cero calibrado. Corrección guardada: '+fm(st.zero,2)+'°. Hazlo con el dorso del celular apoyado en una pared vertical.');
+  });
+
+  function cell(l,v,s){ return '<div><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+(s||'')+'</div></div>'; }
+  function compute(){
+    const R=$('#res'); const m=st.mode;
+    const h0=parseFloat($('#h0').value), Dk=parseFloat($('#dk').value), Hk=parseFloat($('#hk').value);
+    if(m==='Z'){
+      // dos puntos: distancia horizontal a cada base con h0, y separación con el ángulo horizontal
+      if(!st.base){ R.innerHTML=''; return; }
+      const d=(s)=> s.el<0 ? h0/Math.tan(-s.el*D2R) : NaN;
+      const d1=d(st.base); let html=cell('Distancia punto 1',fm(d1)+' m','');
+      if(st.top){
+        const d2=d(st.top);
+        let dh=NaN; if(st.base.head!=null&&st.top.head!=null){ dh=Math.abs(st.top.head-st.base.head); if(dh>180) dh=360-dh; }
+        const sep=Math.sqrt(d1*d1+d2*d2-2*d1*d2*Math.cos(dh*D2R));
+        html+=cell('Distancia punto 2',fm(d2)+' m','')+cell('Ángulo horizontal',fm(dh,1)+'°','por brújula')+cell('Separación 1–2',fm(sep)+' m','aprox., depende de la brújula');
+      }
+      R.innerHTML=html; if(st.base.el>=0||(st.top&&st.top.el>=0)) showMsg('Apunta a la base de cada punto (debajo del horizonte).'); return;
+    }
+    if(!st.base||!st.top){ R.innerHTML=''; return; }
+    const ab=st.base.el*D2R, at=st.top.el*D2R;
+    let D,H,h=h0,err='';
+    if(m==='A'){ if(ab>=0){ err='La base debe estar por debajo del horizonte (ángulo negativo).'; } D=h0/Math.tan(-ab); H=h0+D*Math.tan(at); }
+    if(m==='B'){ D=Dk; H=Dk*(Math.tan(at)-Math.tan(ab)); h=-Dk*Math.tan(ab); }
+    if(m==='C'){ const t=Math.tan(at)-Math.tan(ab); if(t<=0) err='La cima debe estar por encima de la base.'; D=Hk/t; H=Hk; h=-D*Math.tan(ab); }
+    if(err){ R.innerHTML=''; showMsg(err); return; }
+    // incertidumbre por la estabilidad de cada lectura (+ 0,1° de sensor)
+    const ub=(Math.hypot(st.base.sd,0.1))*D2R, ut=(Math.hypot(st.top.sd,0.1))*D2R;
+    let Dmin=Infinity,Dmax=-Infinity,Hmin=Infinity,Hmax=-Infinity;
+    for(const x of [-ub,ub]) for(const y of [-ut,ut]){
+      const b=ab+x,t=at+y; let d,hh;
+      if(m==='A'){ if(b>=0) continue; d=h0/Math.tan(-b); hh=h0+d*Math.tan(t); }
+      if(m==='B'){ d=Dk; hh=Dk*(Math.tan(t)-Math.tan(b)); }
+      if(m==='C'){ d=Hk/(Math.tan(t)-Math.tan(b)); hh=Hk; }
+      Dmin=Math.min(Dmin,d);Dmax=Math.max(Dmax,d);Hmin=Math.min(Hmin,hh);Hmax=Math.max(Hmax,hh);
+    }
+    R.innerHTML=cell('Distancia D',fm(D)+' m',m==='B'?'dato':'± '+fm((Dmax-Dmin)/2)+' m')
+      +cell('Altura H',fm(H)+' m',m==='C'?'dato':'± '+fm((Hmax-Hmin)/2)+' m')
+      +(m!=='A'?cell('Altura de cámara',fm(h)+' m','calculada'):'');
+  }
+})();
+</script>
+</body>
+</html>
