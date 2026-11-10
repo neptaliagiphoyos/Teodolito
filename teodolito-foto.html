@@ -61,6 +61,7 @@ button:focus-visible,.btn:focus-within,input:focus-visible{outline:2px solid var
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:13px;color:var(--muted)}
+.field select{font:500 15px var(--f-body);padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%;min-height:40px}
 .field input{font:500 16px var(--f-mono);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
 .field.known label{color:var(--known)}
 .readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -86,12 +87,11 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;m
 <div class="wrap">
 <header>
   <h1>Teodolito A26</h1>
-  <p>Toma una foto con tu Galaxy A26, marca la base y la cima del objeto, y el simulador calcula la distancia y la altura con la geometría de la cámara principal.</p>
+  <p>Toma una foto con la cámara principal del celular, marca la base y la cima del objeto, y el simulador calcula la distancia, la altura y el ancho con la geometría de la lente.</p>
   <div class="spec">
-    <span class="chip">Cámara principal 50 MP · ISOCELL JN1</span>
-    <span class="chip">27 mm equiv. · f/1.8</span>
+    <span class="chip" id="chipPhone">Galaxy A26 5G · 27 mm equiv.</span>
     <span class="chip" id="chipF">f ≈ 3190 px en 4080×3060</span>
-    <span class="chip">≈ 0,016° por píxel</span>
+    <span class="chip" id="chipRes">≈ 0,016° por píxel</span>
   </div>
 </header>
 
@@ -153,6 +153,8 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;m
       <div class="field" id="fA"><label for="h0">Altura de la cámara h₀ (m)</label><input id="h0" type="number" inputmode="decimal" step="0.01" value="1.50"></div>
       <div class="field" id="fB"><label for="dk">Distancia horizontal D (m)</label><input id="dk" type="number" inputmode="decimal" step="0.1" value="12"></div>
       <div class="field" id="fC"><label for="hk">Altura del objeto H (m)</label><input id="hk" type="number" inputmode="decimal" step="0.01" value="6"></div>
+      <div class="field"><label for="phone">Celular (cámara principal 1x)</label><select id="phone"></select></div>
+      <div class="field" id="fMm" hidden><label for="f35">Focal equivalente (mm)</label><input id="f35" type="number" inputmode="decimal" step="0.1" value="26"></div>
       <div class="field"><label for="fpx">Focal en píxeles (ancho 4080)</label><input id="fpx" type="number" inputmode="decimal" step="1" value="3190"></div>
     </div>
     <div class="readout" id="readout"></div>
@@ -199,7 +201,7 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;m
     <li>Elige qué dato conoces. El método más práctico es <b>Altura de mi cámara</b>: no necesitas cinta hasta el objeto.</li>
     <li>Mira el rango de error: si es grande, acércate al objeto o usa más resolución (modo 50 MP).</li>
   </ol>
-  <p class="note">Los cálculos usan el modelo de cámara estenopeica con la focal estimada del A26 (27 mm equivalentes). Si la foto trae datos EXIF de focal, se usan automáticamente. Cuando calibremos tu lente con un tablero de ajedrez, cambia el valor de “Focal en píxeles” por el calibrado. Precisión típica sin calibrar: 2 a 5 %.</p>
+  <p class="note">Los cálculos usan el modelo de cámara estenopeica con la focal de la cámara principal según su ficha técnica. Elige tu celular en la lista para cargar su focal. Si la foto trae su propio dato de focal (EXIF), se usa ese hasta que cambies el celular o el valor a mano. Cuando calibremos tu lente con un tablero de ajedrez, cambia el valor de “Focal en píxeles” por el calibrado. Precisión típica sin calibrar: 2 a 5 %.</p>
 </section>
 </div>
 
@@ -293,8 +295,9 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;m
     const maxDim=Math.max(st.W,st.H), diag=Math.hypot(st.W,st.H);
     let f, src;
     if(!isDemo && st.exif && st.exif.f35){ f=st.exif.f35/DIAG35*diag; src='EXIF '+st.exif.f35+' mm equiv.'; }
-    else { f=(+$('#fpx').value||3190)*maxDim/REF_W; src=isDemo?'ejemplo':'27 mm equiv. (estimado)'; }
+    else { f=(+$('#fpx').value||3190)*maxDim/REF_W; src=isDemo?'ejemplo':'según el celular elegido'; }
     st.f=f;
+    $('#chipRes').textContent='≈ '+(Math.atan(1/f)*180/Math.PI).toFixed(3).replace('.',',')+'° por píxel';
     $('#chipF').textContent='f ≈ '+Math.round(f)+' px en '+st.W+'×'+st.H+' · '+src;
     let b='Ejemplo simulado: edificio de 6 m a 12 m, cámara a 1,50 m';
     if(!isDemo){ b=(st.exif&&st.exif.model?st.exif.model+' · ':'')+st.W+'×'+st.H; if(st.exif&&st.exif.f35&&st.exif.f35>30) b+=' · ojo: ¿zoom distinto de 1x?'; }
@@ -304,6 +307,29 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;m
     scaled.getContext('2d').drawImage(im,0,0,scaled.width,scaled.height);
     cv.width=scaled.width; cv.height=scaled.height;
   }
+  // ---------- Lista de celulares (focal equivalente de la cámara principal, de fichas técnicas) ----------
+  const PHONES=[
+    ['Samsung',[['Galaxy A26 5G',27],['Galaxy S25 Ultra',23.2],['Galaxy S25 / S25+',24],['Galaxy S24 Ultra',24],['Galaxy S24 / S24+',24]]],
+    ['Apple',[['iPhone 16 Pro / 15 Pro / 14 Pro',24],['iPhone 16 / 15 / 14 / 13',26]]],
+    ['Google',[['Pixel 9 / 8',25]]],
+    ['Otro',[['Otro modelo (escribir focal en mm)',0]]]
+  ];
+  const K35=Math.hypot(4080,3060)/43.27; // píxeles por mm equivalente en una foto 4080×3060
+  (function(){ const sel=$('#phone');
+    for(const [brand,list] of PHONES){ const g=document.createElement('optgroup'); g.label=brand;
+      for(const [name,mm] of list){ const o=document.createElement('option'); o.value=String(mm); o.textContent=mm?name+' · '+String(mm).replace('.',',')+' mm':name; o.dataset.name=name; g.appendChild(o); }
+      sel.appendChild(g); }
+    let saved=null; try{ saved=JSON.parse(localStorage.getItem('teo_phone')||'null'); }catch(e){}
+    if(saved){ const o=[...sel.options].find(x=>x.dataset.name===saved.name); if(o){ sel.value=o.value; sel.selectedIndex=[...sel.options].indexOf(o); if(saved.mm) $('#f35').value=saved.mm; } }
+    function apply(user){ const o=sel.options[sel.selectedIndex]; const other=o.value==='0'; $('#fMm').hidden=!other;
+      const mm=other?(+$('#f35').value||26):+o.value;
+      $('#fpx').value=Math.round(mm*K35);
+      $('#chipPhone').textContent=(other?'Otro modelo':o.dataset.name)+' · '+String(mm).replace('.',',')+' mm equiv.';
+      try{ localStorage.setItem('teo_phone',JSON.stringify({name:o.dataset.name,mm})); }catch(e){}
+      if(user) $('#fpx').dispatchEvent(new Event('change')); }
+    sel.addEventListener('change',()=>apply(true)); $('#f35').addEventListener('change',()=>apply(true));
+    apply(false);
+  })();
   $('#fpx').addEventListener('change',()=>{ if(st.img){ const keep=st.exif; if(!st.demo) st.exif=null; setImage(st.img,st.demo); st.exif=keep; draw(); calc(); }});
 
   // ---------- Dibujo ----------
