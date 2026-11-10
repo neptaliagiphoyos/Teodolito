@@ -40,8 +40,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family
 .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
   border-top:1px solid var(--line);padding:10px max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) max(14px,env(safe-area-inset-left,0px));
   display:flex;flex-direction:column;gap:10px}
-.seg{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
-.seg button{flex:none}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.seg button{min-width:0;font-size:13px;padding:8px 6px}
 button{font:600 14px var(--sans);color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:9px;padding:9px 12px;min-height:42px}
 button[aria-pressed="true"]{background:var(--ink);color:#111;border-color:var(--ink)}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -86,10 +86,10 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 <div class="sheet">
   <div class="seg" role="group" aria-label="Qué conoces">
-    <button data-mode="A" aria-pressed="true">Altura de mi cámara</button>
-    <button data-mode="B" aria-pressed="false">Distancia D</button>
-    <button data-mode="C" aria-pressed="false">Altura H</button>
-    <button data-mode="Z" aria-pressed="false">Entre 2 puntos</button>
+    <button data-mode="A" aria-pressed="true">Alto y distancia</button>
+    <button data-mode="Z" aria-pressed="false">Ancho</button>
+    <button data-mode="B" aria-pressed="false">Sé la distancia D</button>
+    <button data-mode="C" aria-pressed="false">Sé la altura H</button>
   </div>
   <div class="fields">
     <label id="lA">h₀ (m) <input id="h0" type="number" inputmode="decimal" step="0.01" value="1.50"></label>
@@ -116,6 +116,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <li>Sostén el celular <b>vertical</b> (modo retrato), con la cámara 1x.</li>
       <li>Mide la altura de la lente al suelo (h₀). Con trípode es más preciso.</li>
       <li>Centra la retícula en la <b>base</b> del objeto y toca “Apuntar base”. Luego en la <b>cima</b> y toca “Apuntar cima”.</li>
+      <li>Para el <b>ancho</b>, elige “Ancho” y apunta al pie del borde izquierdo y luego al pie del derecho, sin moverte del sitio.</li>
       <li>Quédate quieto un segundo antes de tocar: la app promedia las lecturas.</li>
     </ol>
     <button class="go" id="go">Iniciar cámara y sensores</button>
@@ -128,7 +129,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   const $=s=>document.querySelector(s);
   const D2R=Math.PI/180, R2D=180/Math.PI;
   const st={mode:'A', zero:0, base:null, top:null, p1:null, p2:null,
-    elev:null, roll:0, head:null, buf:[], hbuf:[], gx:0, gy:0, gz:0, have:false};
+    elev:null, roll:0, head:null, buf:[], hbuf:[], ybuf:[], gx:0, gy:0, gz:0, have:false};
   try{ const z=parseFloat(localStorage.getItem('teo_zero')); if(isFinite(z)) st.zero=z; }catch(e){}
 
   // ---------- inicio ----------
@@ -148,8 +149,10 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     try{ if(navigator.wakeLock) await navigator.wakeLock.request('screen'); }catch(e){}
     try{ if(screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); }catch(e){}
     window.addEventListener('devicemotion',onMotion);
-    if('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute',onOrient);
-    else window.addEventListener('deviceorientation',onOrient);
+    const hasAbs='ondeviceorientationabsolute' in window;
+    if(hasAbs) window.addEventListener('deviceorientationabsolute',onOrient);
+    // giro relativo (giroscopio, sin imán): más estable que la brújula para el ángulo entre dos punterías
+    window.addEventListener('deviceorientation',e=>{ const h=hdg(e); if(h==null) return; st.ybuf.push(h); if(st.ybuf.length>40) st.ybuf.shift(); if(!hasAbs) onOrient(e); });
     $('#start').hidden=true;
     setTimeout(()=>{ if(!st.have) showMsg('No llegan datos del acelerómetro. En Chrome: Configuración del sitio > Sensores de movimiento > Permitir.'); },2500);
     render();
@@ -168,12 +171,15 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     st.roll=Math.atan2(st.gx,st.gy)*R2D; // 0 = vertical
     st.buf.push(st.elev); if(st.buf.length>40) st.buf.shift();
   }
-  function onOrient(e){
-    if(e.alpha==null) return;
+  function hdg(e){
+    if(e.alpha==null) return null;
     const a=e.alpha*D2R,b=e.beta*D2R,g=e.gamma*D2R;
-    const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),cg=Math.cos(g),sg=Math.sin(g);
+    const ca=Math.cos(a),sa=Math.sin(a),sb=Math.sin(b),cg=Math.cos(g),sg=Math.sin(g);
     const E=-ca*sg-sa*sb*cg, N=-sa*sg+ca*sb*cg;
-    let h=Math.atan2(E,N)*R2D; if(h<0) h+=360;
+    let h=Math.atan2(E,N)*R2D; if(h<0) h+=360; return h;
+  }
+  function onOrient(e){
+    const h=hdg(e); if(h==null) return;
     st.head=h; st.headAbs=(e.absolute===true)||e.type==='deviceorientationabsolute';
     st.hbuf.push(h); if(st.hbuf.length>40) st.hbuf.shift();
   }
@@ -183,7 +189,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   function sample(){
     if(st.buf.length<10) return null;
     const last=st.buf.slice(-30);
-    return {el:mean(last), sd:sd(last), head:st.hbuf.length?circMean(st.hbuf.slice(-30)):null};
+    return {el:mean(last), sd:sd(last), head:st.hbuf.length?circMean(st.hbuf.slice(-30)):null, yaw:st.ybuf.length?circMean(st.ybuf.slice(-30)):null};
   }
 
   // ---------- interfaz ----------
@@ -216,9 +222,10 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     st.mode=b.dataset.mode; document.querySelectorAll('[data-mode]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
     $('#lA').hidden=!(st.mode==='A'||st.mode==='Z'); $('#lB').hidden=st.mode!=='B'; $('#lC').hidden=st.mode!=='C';
     const z=st.mode==='Z';
-    $('#bBaseT').textContent=z?'Base punto 1':'Apuntar base';
-    $('#bTopT').textContent=z?'Base punto 2':'Apuntar cima';
+    $('#bBaseT').textContent=z?'Borde izq. (al pie)':'Apuntar base';
+    $('#bTopT').textContent=z?'Borde der. (al pie)':'Apuntar cima';
     resetAll();
+    if(z) showMsg('Sin moverte del sitio, apunta al pie de cada borde del objeto (donde toca el suelo) y toca su botón.');
   }));
   ['#h0','#dk','#hk'].forEach(s=>$(s).addEventListener('input',compute));
 
@@ -250,15 +257,25 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     if(m==='Z'){
       // dos puntos: distancia horizontal a cada base con h0, y separación con el ángulo horizontal
       if(!st.base){ R.innerHTML=''; return; }
-      const d=(s)=> s.el<0 ? h0/Math.tan(-s.el*D2R) : NaN;
-      const d1=d(st.base); let html=cell('Distancia punto 1',fm(d1)+' m','');
-      if(st.top){
-        const d2=d(st.top);
-        let dh=NaN; if(st.base.head!=null&&st.top.head!=null){ dh=Math.abs(st.top.head-st.base.head); if(dh>180) dh=360-dh; }
-        const sep=Math.sqrt(d1*d1+d2*d2-2*d1*d2*Math.cos(dh*D2R));
-        html+=cell('Distancia punto 2',fm(d2)+' m','')+cell('Ángulo horizontal',fm(dh,1)+'°','por brújula')+cell('Separación 1–2',fm(sep)+' m','aprox., depende de la brújula');
-      }
-      R.innerHTML=html; if(st.base.el>=0||(st.top&&st.top.el>=0)) showMsg('Apunta a la base de cada punto (debajo del horizonte).'); return;
+      const d=(el)=> el<0 ? h0/Math.tan(-el*D2R) : NaN;
+      const d1=d(st.base.el);
+      if(!st.top){ R.innerHTML=cell('Distancia al borde izq.',fm(d1)+' m',''); if(st.base.el>=0) showMsg('Apunta al pie del borde, por debajo del horizonte.'); return; }
+      const d2=d(st.top.el);
+      const useYaw=st.base.yaw!=null&&st.top.yaw!=null;
+      const h1=useYaw?st.base.yaw:st.base.head, h2=useYaw?st.top.yaw:st.top.head;
+      let dh=NaN; if(h1!=null&&h2!=null){ dh=Math.abs(h2-h1); if(dh>180) dh=360-dh; }
+      const W=(a,b,g)=>Math.sqrt(a*a+b*b-2*a*b*Math.cos(g*D2R));
+      const w=W(d1,d2,dh);
+      // incertidumbre: estabilidad de cada puntería (+0,1° de sensor) y 0,5° en el giro horizontal
+      let e=0; const u1=Math.hypot(st.base.sd,0.1), u2=Math.hypot(st.top.sd,0.1);
+      for(const x of [-u1,u1]) for(const y of [-u2,u2]) for(const g of [-0.5,0.5]){ const q=W(d(st.base.el+x),d(st.top.el+y),dh+g); if(isFinite(q)) e=Math.max(e,Math.abs(q-w)); }
+      R.innerHTML=cell('Ancho W',fm(w)+' m','± '+fm(e)+' m')
+        +cell('Ángulo horizontal',fm(dh,1)+'°',useYaw?'por giroscopio':'por brújula')
+        +cell('Distancia borde izq.',fm(d1)+' m','')+cell('Distancia borde der.',fm(d2)+' m','');
+      if(st.base.el>=0||st.top.el>=0) showMsg('Apunta al pie de cada borde, por debajo del horizonte.');
+      else if(!isFinite(dh)) showMsg('No llegan datos de giro del celular; no se puede calcular el ancho.');
+      else showMsg('');
+      return;
     }
     if(!st.base||!st.top){ R.innerHTML=''; return; }
     const ab=st.base.el*D2R, at=st.top.el*D2R;
