@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<title>Teodolito A26</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: una columna de instrumento — visor de foto arriba, lectura numérica y esquema debajo; dos columnas en pantallas anchas */
+:root{
+  --bg:#eef0ec; --panel:#ffffff; --ink:#1d2321; --muted:#5d6763; --line:#cfd5d0;
+  --accent:#d98a00; --accent-ink:#ffffff; --known:#2f6f8f; --unknown:#c2410c; --ok:#2e7d4f; --warn:#b45309;
+  --reticle:#ff3b30; --reticle2:#00c2ff; --hor:#ffd400;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141917; --panel:#1d2421; --ink:#e7ece9; --muted:#9aa5a0; --line:#33403b;
+  --accent:#f0a020; --accent-ink:#1a1305; --known:#6fb7d9; --unknown:#ff8a4c; --ok:#5cc28a; --warn:#f2a54a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --panel:#1d2421; --ink:#e7ece9; --muted:#9aa5a0; --line:#33403b;
+  --accent:#f0a020; --accent-ink:#1a1305; --known:#6fb7d9; --unknown:#ff8a4c; --ok:#5cc28a; --warn:#f2a54a; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header h1{font-family:var(--f-display);font-weight:800;font-size:clamp(26px,6vw,38px);letter-spacing:-.01em;margin:0;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted);max-width:65ch}
+.spec{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--muted);background:var(--panel)}
+.grid{display:grid;grid-template-columns:1fr;gap:18px}
+@media (min-width:900px){.grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+section.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+h2{font-family:var(--f-display);font-weight:700;font-size:18px;margin:0}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.btn{font:600 14px var(--f-body);border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:9px 13px;cursor:pointer;min-height:40px}
+button:focus-visible,.btn:focus-within,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.btn{position:relative;display:inline-flex;align-items:center;gap:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pt button[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:1px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%}
+.viewer{position:relative;border-radius:8px;overflow:hidden;background:#000;touch-action:none;user-select:none}
+.viewer canvas{display:block;width:100%;height:auto}
+.badge{position:absolute;top:8px;left:8px;font:600 11px var(--f-mono);background:rgba(0,0,0,.65);color:#fff;padding:3px 8px;border-radius:4px}
+.loupe-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#loupe{width:132px;height:132px;border-radius:50%;border:2px solid var(--line);background:#000;flex:none}
+.nudge{display:flex;flex-direction:column;gap:6px}
+.nudge .row button{min-width:46px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:13px;color:var(--muted)}
+.field input{font:500 16px var(--f-mono);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
+.field.known label{color:var(--known)}
+.readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.read{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.read .v{font:600 22px var(--f-mono);font-variant-numeric:tabular-nums}
+.read.main{border-color:var(--unknown)}
+.read.main .v{color:var(--unknown)}
+.read .s{font:12px var(--f-mono);color:var(--muted)}
+.msg{font-size:14px;padding:8px 12px;border-radius:8px;border:1px solid var(--warn);color:var(--warn)}
+.formula{font:13px/1.7 var(--f-mono);background:var(--bg);border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:pre}
+.diagram{overflow-x:auto}
+.diagram svg{width:100%;max-width:520px;height:auto;display:block;margin:0 auto}
+svg text{font-family:var(--f-mono);font-size:11px;fill:var(--ink)}
+svg .k{stroke:var(--known);fill:none}
+svg .u{stroke:var(--unknown);fill:none}
+svg text.k{fill:var(--known);stroke:none}
+svg text.u{fill:var(--unknown);stroke:none}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:65ch}
+.note{font-size:13px;color:var(--muted);max-width:65ch;margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Teodolito A26</h1>
+  <p>Toma una foto con tu Galaxy A26, marca la base y la cima del objeto, y el simulador calcula la distancia y la altura con la geometría de la cámara principal.</p>
+  <div class="spec">
+    <span class="chip">Cámara principal 50 MP · ISOCELL JN1</span>
+    <span class="chip">27 mm equiv. · f/1.8</span>
+    <span class="chip" id="chipF">f ≈ 3190 px en 4080×3060</span>
+    <span class="chip">≈ 0,016° por píxel</span>
+  </div>
+</header>
+
+<div class="grid">
+<div class="col">
+  <section class="panel">
+    <div class="row" style="justify-content:space-between">
+      <h2>1 · Foto</h2>
+      <div class="row">
+        <label class="btn primary" for="cam">📷 Tomar foto
+          <input id="cam" type="file" accept="image/*" capture="environment">
+        </label>
+        <label class="btn" for="gal">Elegir de galería
+          <input id="gal" type="file" accept="image/*">
+        </label>
+        <button id="demo" type="button">Ver ejemplo</button>
+      </div>
+    </div>
+    <div class="viewer" id="viewer">
+      <canvas id="cv" width="800" height="600" aria-label="Foto para medir. Toca para colocar el punto activo."></canvas>
+      <span class="badge" id="badge">Ejemplo simulado</span>
+    </div>
+    <div class="lbl">2 · Marca los puntos (toca la foto o arrastra la marca)</div>
+    <div class="seg pt" role="group" aria-label="Punto activo">
+      <button type="button" data-pt="base" aria-pressed="true"><span class="dot" style="background:var(--reticle)"></span> Base del objeto</button>
+      <button type="button" data-pt="top" aria-pressed="false"><span class="dot" style="background:var(--reticle2)"></span> Cima del objeto</button>
+      <button type="button" data-pt="left" aria-pressed="false"><span class="dot" style="background:#ff5cf0"></span> Borde izquierdo</button>
+      <button type="button" data-pt="right" aria-pressed="false"><span class="dot" style="background:#7dff6a"></span> Borde derecho</button>
+      <button type="button" data-pt="hor" aria-pressed="false"><span class="dot" style="background:var(--hor)"></span> Horizonte (opcional)</button>
+    </div>
+    <div class="loupe-row">
+      <canvas id="loupe" width="264" height="264" aria-label="Lupa del punto activo"></canvas>
+      <div class="nudge">
+        <span class="lbl">Ajuste fino del punto activo</span>
+        <div class="row">
+          <button type="button" id="up" aria-label="Subir un píxel">▲</button>
+          <button type="button" id="down" aria-label="Bajar un píxel">▼</button>
+          <button type="button" id="leftB" aria-label="Mover un píxel a la izquierda">◀</button>
+          <button type="button" id="rightB" aria-label="Mover un píxel a la derecha">▶</button>
+          <button type="button" id="clearHor">Quitar horizonte</button>
+        </div>
+        <span class="note" id="pinfo"></span>
+      </div>
+    </div>
+    <p class="note">Para medir el <b>ancho</b>, marca el borde izquierdo y el derecho <b>a la misma altura real</b>: los dos al pie del muro o los dos en su borde superior. Si el muro está en diagonal, la recta entre ambos apunta a su punto de fuga (el punto blanco sobre el horizonte) y el simulador calcula el ancho real. La marca de base debe estar al pie de ese mismo muro.</p>
+    <p class="note">Sin marca de horizonte, se asume que el celular estaba vertical y nivelado: el horizonte es la línea amarilla punteada del centro. Si inclinaste el celular, marca un punto que esté a la altura de tu cámara (por ejemplo, una línea de agua o una marca en una pared a la altura de tus ojos).</p>
+  </section>
+</div>
+
+<div class="col">
+  <section class="panel">
+    <h2>3 · ¿Qué conoces?</h2>
+    <div class="seg" role="group" aria-label="Método" id="modes">
+      <button type="button" data-mode="A" aria-pressed="true">Altura de mi cámara</button>
+      <button type="button" data-mode="B" aria-pressed="false">Distancia al objeto</button>
+      <button type="button" data-mode="C" aria-pressed="false">Altura del objeto</button>
+    </div>
+    <div class="fields">
+      <div class="field" id="fA"><label for="h0">Altura de la cámara h₀ (m)</label><input id="h0" type="number" inputmode="decimal" step="0.01" value="1.50"></div>
+      <div class="field" id="fB"><label for="dk">Distancia horizontal D (m)</label><input id="dk" type="number" inputmode="decimal" step="0.1" value="12"></div>
+      <div class="field" id="fC"><label for="hk">Altura del objeto H (m)</label><input id="hk" type="number" inputmode="decimal" step="0.01" value="6"></div>
+      <div class="field"><label for="fpx">Focal en píxeles (ancho 4080)</label><input id="fpx" type="number" inputmode="decimal" step="1" value="3190"></div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div id="msg"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Esquema del método</h2>
+    <div class="diagram">
+      <svg viewBox="-40 0 470 215" role="img" aria-label="Esquema: cámara a la izquierda a altura h0, objeto a la derecha de altura H, a distancia D; visuales a la base y a la cima con ángulos alfa b y alfa c.">
+        <line x1="8" y1="170" x2="372" y2="170" stroke="var(--muted)" stroke-width="1.5"/>
+        <g stroke="var(--muted)" stroke-width="1.2"><line x1="46" y1="134" x2="34" y2="170"/><line x1="46" y1="134" x2="58" y2="170"/><line x1="46" y1="134" x2="46" y2="170"/></g>
+        <rect x="40" y="118" width="12" height="20" rx="2" fill="var(--ink)"/>
+        <rect x="284" y="40" width="34" height="130" fill="var(--line)" stroke="var(--muted)"/>
+        <line x1="52" y1="128" x2="284" y2="128" stroke="var(--hor)" stroke-dasharray="4 4" stroke-width="1.3"/>
+        <text x="150" y="122" style="fill:var(--muted)">horizonte</text>
+        <line x1="52" y1="128" x2="284" y2="40" stroke="var(--reticle2)" stroke-width="1.5"/>
+        <line x1="52" y1="128" x2="284" y2="170" stroke="var(--reticle)" stroke-width="1.5"/>
+        <path d="M 112 128 A 60 60 0 0 0 108 106" stroke="var(--reticle2)" fill="none" stroke-width="1.5"/>
+        <text x="116" y="112" style="fill:var(--reticle2)">αc</text>
+        <path d="M 112 128 A 60 60 0 0 1 110 143" stroke="var(--reticle)" fill="none" stroke-width="1.5"/>
+        <text x="116" y="148" style="fill:var(--reticle)">αb</text>
+        <g id="dimD"><line x1="52" y1="190" x2="284" y2="190" stroke-width="1.3"/><line x1="52" y1="184" x2="52" y2="196" stroke-width="1.3"/><line x1="284" y1="184" x2="284" y2="196" stroke-width="1.3"/>
+          <text x="168" y="207" text-anchor="middle" id="tD">D</text></g>
+        <g id="dimH"><line x1="336" y1="40" x2="336" y2="170" stroke-width="1.3"/><line x1="330" y1="40" x2="342" y2="40" stroke-width="1.3"/><line x1="330" y1="170" x2="342" y2="170" stroke-width="1.3"/>
+          <text x="346" y="108" id="tH">H</text></g>
+        <g id="dimh"><line x1="20" y1="128" x2="20" y2="170" stroke-width="1.3"/><line x1="14" y1="128" x2="26" y2="128" stroke-width="1.3"/><line x1="14" y1="170" x2="26" y2="170" stroke-width="1.3"/>
+          <text x="-36" y="116" id="th">h₀</text></g>
+        <text x="-36" y="16" id="legend"><tspan class="k">■ dato que conoces</tspan><tspan dx="12" class="u">■ lo que se calcula</tspan></text>
+      </svg>
+    </div>
+    <div class="formula" id="formula"></div>
+  </section>
+</div>
+</div>
+
+<section class="panel">
+  <h2>Cómo medir en el campo</h2>
+  <ol class="steps">
+    <li>Abre la cámara en modo Foto, zoom <b>1x</b>, formato <b>3:4</b> (12 MP). No uses la gran angular (0.6x) ni el zoom digital.</li>
+    <li>Pon el celular en un trípode o apóyalo firme, <b>vertical y nivelado</b>. Mide con cinta la altura del centro de la lente al suelo: ese es h₀.</li>
+    <li>Encuadra el objeto completo: su base y su cima deben verse en la foto. Toca la pantalla para enfocar y toma la foto.</li>
+    <li>Aquí, toca <b>Tomar foto</b> o elige la foto desde la galería. Marca la base y la cima; usa la lupa y las flechas para afinar.</li>
+    <li>Elige qué dato conoces. El método más práctico es <b>Altura de mi cámara</b>: no necesitas cinta hasta el objeto.</li>
+    <li>Mira el rango de error: si es grande, acércate al objeto o usa más resolución (modo 50 MP).</li>
+  </ol>
+  <p class="note">Los cálculos usan el modelo de cámara estenopeica con la focal estimada del A26 (27 mm equivalentes). Si la foto trae datos EXIF de focal, se usan automáticamente. Cuando calibremos tu lente con un tablero de ajedrez, cambia el valor de “Focal en píxeles” por el calibrado. Precisión típica sin calibrar: 2 a 5 %.</p>
+</section>
+</div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const cv = $('#cv'), ctx = cv.getContext('2d');
+  const lp = $('#loupe'), lctx = lp.getContext('2d');
+  const REF_W = 4080; // ancho de referencia de la foto 12,5 MP del A26
+  const DIAG35 = 43.27;
+  const st = {
+    img:null, W:0, H:0, f:3190, fRef:3190, demo:true,
+    pts:{base:null, top:null, hor:null, left:null, right:null}, active:'base', mode:'A', drag:null, exif:null
+  };
+  let scaled = null; // canvas reducido para dibujo rápido
+
+  // ---------- Ejemplo simulado ----------
+  function makeDemo(){
+    const W=1360,H=1020, c=document.createElement('canvas'); c.width=W; c.height=H;
+    const g=c.getContext('2d'); const f=3190*W/REF_W, cy=H/2;
+    const yOf=(dz,D)=>cy - f*dz/D; // dz relativo a la cámara
+    const sky=g.createLinearGradient(0,0,0,cy); sky.addColorStop(0,'#6fa8dc'); sky.addColorStop(1,'#cfe3f3');
+    g.fillStyle=sky; g.fillRect(0,0,W,cy+40);
+    g.fillStyle='#8f9b74'; g.fillRect(0,cy,W,H-cy);
+    // calle
+    g.fillStyle='#6d6f6b'; g.beginPath(); g.moveTo(W*0.38,H); g.lineTo(W*0.62,H); g.lineTo(W*0.52,yOf(-1.5,40)); g.lineTo(W*0.48,yOf(-1.5,40)); g.fill();
+    // edificio a 12 m, 6 m de alto, 4 m ancho
+    const D=12, h0=1.5, bTop=yOf(6-h0,D), bBase=yOf(-h0,D), bw=f*4/D, bx=W*0.5-bw/2+120;
+    g.fillStyle='#c7b299'; g.fillRect(bx,bTop,bw,bBase-bTop);
+    g.fillStyle='#a8927a'; g.fillRect(bx,bTop,bw,10);
+    g.fillStyle='#4b5d6b';
+    for(let r=0;r<2;r++) for(let k=0;k<3;k++){ const wx=bx+bw*(0.12+k*0.3), wy=bTop+ (bBase-bTop)*(0.12+r*0.45); g.fillRect(wx,wy,bw*0.18,(bBase-bTop)*0.22); }
+    g.fillStyle='#5a3e2b'; g.fillRect(bx+bw*0.42,bBase-(bBase-bTop)*0.3,bw*0.16,(bBase-bTop)*0.3);
+    // árbol a 20 m
+    const tD=20, tx=W*0.18; g.fillStyle='#5a4632'; g.fillRect(tx-6,yOf(3-h0,tD),12,yOf(-h0,tD)-yOf(3-h0,tD));
+    g.fillStyle='#3f6b3a'; g.beginPath(); g.arc(tx,yOf(4.2-h0,tD),f*1.6/tD,0,Math.PI*2); g.fill();
+    // persona a 8 m (1,70 m)
+    const pD=8, px=W*0.3; g.fillStyle='#2d3a4a'; g.fillRect(px-f*0.22/pD,yOf(1.45-h0,pD),f*0.44/pD,yOf(-h0,pD)-yOf(1.45-h0,pD));
+    g.fillStyle='#e0b48f'; g.beginPath(); g.arc(px,yOf(1.58-h0,pD),f*0.12/pD,0,Math.PI*2); g.fill();
+    const im=new Image(); im.onload=()=>{
+      setImage(im,true);
+      st.pts.base={x:bx+bw*0.2,y:bBase}; st.pts.top={x:bx+bw*0.2,y:bTop}; st.pts.hor=null;
+      st.pts.left={x:bx,y:bBase}; st.pts.right={x:bx+bw,y:bBase};
+      setActive('base'); draw(); calc();
+    }; im.src=c.toDataURL('image/jpeg',0.9);
+  }
+
+  // ---------- EXIF (focal) ----------
+  function readExif(buf){
+    try{
+      const v=new DataView(buf); if(v.getUint16(0)!==0xFFD8) return null;
+      let o=2;
+      while(o<v.byteLength-4){
+        const m=v.getUint16(o); const len=v.getUint16(o+2);
+        if(m===0xFFE1 && v.getUint32(o+4)===0x45786966){
+          const t=o+10, le=v.getUint16(t)===0x4949;
+          const u16=p=>v.getUint16(t+p,le), u32=p=>v.getUint32(t+p,le);
+          const ifd=(p)=>{const n=u16(p), out={}; for(let i=0;i<n;i++){const e=p+2+i*12; out[u16(e)]={type:u16(e+2),cnt:u32(e+4),val:e+8};} return out;};
+          const i0=ifd(u32(4)); const res={};
+          if(i0[0x8769]){ const ex=ifd(u32(i0[0x8769].val));
+            if(ex[0xA405]) res.f35=u16(ex[0xA405].val);
+            if(ex[0x920A]){ const p=u32(ex[0x920A].val); res.fmm=u32(p)/u32(p+4); }
+          }
+          if(i0[0x0110]){ const e=i0[0x0110]; const p=e.cnt>4?u32(e.val):e.val; let s=''; for(let i=0;i<e.cnt-1;i++) s+=String.fromCharCode(v.getUint8(t+p+i)); res.model=s.trim(); }
+          return res;
+        }
+        if((m&0xFF00)!==0xFF00) break; o+=2+len;
+      }
+    }catch(e){}
+    return null;
+  }
+
+  function onFile(file){
+    if(!file) return;
+    const fr=new FileReader();
+    fr.onload=()=>{
+      st.exif=readExif(fr.result);
+      const url=URL.createObjectURL(file); const im=new Image();
+      im.onload=()=>{ setImage(im,false); st.pts={base:null,top:null,hor:null,left:null,right:null}; setActive('base'); draw(); calc(); };
+      im.onerror=()=>{ showMsg('No se pudo abrir esa imagen. Prueba con una foto JPG de la cámara.'); };
+      im.src=url;
+    };
+    fr.readAsArrayBuffer(file);
+  }
+  $('#cam').addEventListener('change',e=>onFile(e.target.files[0]));
+  $('#gal').addEventListener('change',e=>onFile(e.target.files[0]));
+  $('#demo').addEventListener('click',makeDemo);
+
+  function setImage(im,isDemo){
+    st.img=im; st.W=im.naturalWidth; st.H=im.naturalHeight; st.demo=isDemo;
+    const maxDim=Math.max(st.W,st.H), diag=Math.hypot(st.W,st.H);
+    let f, src;
+    if(!isDemo && st.exif && st.exif.f35){ f=st.exif.f35/DIAG35*diag; src='EXIF '+st.exif.f35+' mm equiv.'; }
+    else { f=(+$('#fpx').value||3190)*maxDim/REF_W; src=isDemo?'ejemplo':'27 mm equiv. (estimado)'; }
+    st.f=f;
+    $('#chipF').textContent='f ≈ '+Math.round(f)+' px en '+st.W+'×'+st.H+' · '+src;
+    let b='Ejemplo simulado: edificio de 6 m a 12 m, cámara a 1,50 m';
+    if(!isDemo){ b=(st.exif&&st.exif.model?st.exif.model+' · ':'')+st.W+'×'+st.H; if(st.exif&&st.exif.f35&&st.exif.f35>30) b+=' · ojo: ¿zoom distinto de 1x?'; }
+    $('#badge').textContent=b;
+    const k=Math.min(1,1600/maxDim); scaled=document.createElement('canvas');
+    scaled.width=Math.round(st.W*k); scaled.height=Math.round(st.H*k);
+    scaled.getContext('2d').drawImage(im,0,0,scaled.width,scaled.height);
+    cv.width=scaled.width; cv.height=scaled.height;
+  }
+  $('#fpx').addEventListener('change',()=>{ if(st.img){ const keep=st.exif; if(!st.demo) st.exif=null; setImage(st.img,st.demo); st.exif=keep; draw(); calc(); }});
+
+  // ---------- Dibujo ----------
+  const COL={base:'#ff3b30',top:'#00c2ff',hor:'#ffd400',left:'#ff5cf0',right:'#7dff6a'};
+  function draw(){
+    if(!scaled) return;
+    const k=cv.width/st.W;
+    ctx.drawImage(scaled,0,0);
+    const lw=Math.max(1.5,cv.width/600);
+    // horizonte
+    const hy=(st.pts.hor?st.pts.hor.y:st.H/2)*k;
+    ctx.setLineDash([10*lw,8*lw]); ctx.strokeStyle='#ffd400'; ctx.lineWidth=lw;
+    ctx.beginPath(); ctx.moveTo(0,hy); ctx.lineTo(cv.width,hy); ctx.stroke(); ctx.setLineDash([]);
+    // centro óptico
+    ctx.strokeStyle='rgba(255,255,255,.7)'; const c=12*lw;
+    ctx.beginPath(); ctx.moveTo(cv.width/2-c,cv.height/2); ctx.lineTo(cv.width/2+c,cv.height/2); ctx.moveTo(cv.width/2,cv.height/2-c); ctx.lineTo(cv.width/2,cv.height/2+c); ctx.stroke();
+    // línea base-cima
+    if(st.pts.base&&st.pts.top){ ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(st.pts.base.x*k,st.pts.base.y*k); ctx.lineTo(st.pts.top.x*k,st.pts.top.y*k); ctx.stroke(); }
+    if(st.pts.left&&st.pts.right){ const A=st.pts.left,B2=st.pts.right; ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(A.x*k,A.y*k); ctx.lineTo(B2.x*k,B2.y*k); ctx.stroke();
+      const hY=st.pts.hor?st.pts.hor.y:st.H/2;
+      if(Math.abs(B2.y-A.y)>1){ const xv=A.x+(hY-A.y)*(B2.x-A.x)/(B2.y-A.y); const near=Math.abs(xv-A.x)<Math.abs(xv-B2.x)?A:B2;
+        ctx.setLineDash([4*lw,6*lw]); ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.beginPath(); ctx.moveTo(near.x*k,near.y*k); ctx.lineTo(xv*k,hY*k); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(xv*k,hY*k,4*lw,0,Math.PI*2); ctx.fill(); } }
+    for(const key of ['hor','left','right','base','top']){
+      const p=st.pts[key]; if(!p) continue;
+      const x=p.x*k,y=p.y*k,r=14*lw;
+      ctx.lineWidth=(key===st.active?2.2:1.4)*lw; ctx.strokeStyle=COL[key];
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x-r*1.6,y); ctx.lineTo(x-r*0.4,y); ctx.moveTo(x+r*0.4,y); ctx.lineTo(x+r*1.6,y); ctx.moveTo(x,y-r*1.6); ctx.lineTo(x,y-r*0.4); ctx.moveTo(x,y+r*0.4); ctx.lineTo(x,y+r*1.6); ctx.stroke();
+    }
+    drawLoupe();
+  }
+  function drawLoupe(){
+    lctx.fillStyle='#000'; lctx.fillRect(0,0,lp.width,lp.height);
+    const p=st.pts[st.active]; if(!st.img||!p){ lctx.fillStyle='#888'; lctx.font='20px sans-serif'; lctx.textAlign='center'; lctx.fillText('Toca la foto',lp.width/2,lp.height/2); return; }
+    const disp=cv.getBoundingClientRect().width||cv.width;
+    const s=Math.max(12,(132/5)*st.W/disp); // 5x respecto a lo que ves
+    lctx.save(); lctx.beginPath(); lctx.arc(lp.width/2,lp.height/2,lp.width/2,0,Math.PI*2); lctx.clip();
+    lctx.imageSmoothingEnabled=false;
+    lctx.drawImage(st.img,p.x-s/2,p.y-s/2,s,s,0,0,lp.width,lp.height);
+    lctx.strokeStyle=COL[st.active]; lctx.lineWidth=2;
+    lctx.beginPath(); lctx.moveTo(0,lp.height/2); lctx.lineTo(lp.width,lp.height/2); lctx.moveTo(lp.width/2,0); lctx.lineTo(lp.width/2,lp.height); lctx.stroke();
+    lctx.restore();
+    $('#pinfo').textContent=({base:'Base',top:'Cima',hor:'Horizonte',left:'Borde izq.',right:'Borde der.'})[st.active]+': columna '+p.x.toFixed(1)+', fila '+p.y.toFixed(1)+' px';
+  }
+
+  // ---------- Interacción ----------
+  function setActive(k){ st.active=k; document.querySelectorAll('[data-pt]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pt===k))); drawLoupe(); }
+  document.querySelectorAll('[data-pt]').forEach(b=>b.addEventListener('click',()=>{ setActive(b.dataset.pt); draw(); }));
+  function toImg(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)/r.width*st.W, y:(e.clientY-r.top)/r.height*st.H, sc:st.W/r.width}; }
+  cv.addEventListener('pointerdown',e=>{
+    if(!st.img) return; const q=toImg(e);
+    let hit=null, best=28*q.sc;
+    for(const k of ['base','top','left','right','hor']){ const p=st.pts[k]; if(!p) continue; const d=Math.hypot(p.x-q.x,p.y-q.y); if(d<best){best=d;hit=k;} }
+    if(hit){ setActive(hit); st.drag={k:hit,dx:st.pts[hit].x-q.x,dy:st.pts[hit].y-q.y}; }
+    else { st.pts[st.active]={x:q.x,y:q.y}; st.drag={k:st.active,dx:0,dy:0};
+      if(st.active==='base'&&!st.pts.top) setTimeout(()=>{setActive('top');draw();},0);
+      if(st.active==='left'&&!st.pts.right) setTimeout(()=>{setActive('right');draw();},0); }
+    cv.setPointerCapture(e.pointerId); draw(); calc();
+  });
+  cv.addEventListener('pointermove',e=>{ if(!st.drag) return; const q=toImg(e);
+    st.pts[st.drag.k]={x:Math.min(st.W,Math.max(0,q.x+st.drag.dx)),y:Math.min(st.H,Math.max(0,q.y+st.drag.dy))}; draw(); calc(); });
+  const end=()=>{ st.drag=null; }; cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+  function nudge(d){ const p=st.pts[st.active]; if(!p) return; p.y=Math.min(st.H,Math.max(0,p.y+d)); draw(); calc(); }
+  $('#up').addEventListener('click',()=>nudge(-1)); $('#down').addEventListener('click',()=>nudge(1));
+  function nudgeX(d){ const p=st.pts[st.active]; if(!p) return; p.x=Math.min(st.W,Math.max(0,p.x+d)); draw(); calc(); }
+  $('#leftB').addEventListener('click',()=>nudgeX(-1)); $('#rightB').addEventListener('click',()=>nudgeX(1));
+  $('#clearHor').addEventListener('click',()=>{ st.pts.hor=null; if(st.active==='hor') setActive('base'); draw(); calc(); });
+
+  document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{ st.mode=b.dataset.mode;
+    document.querySelectorAll('[data-mode]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); calc(); }));
+  ['#h0','#dk','#hk'].forEach(s=>$(s).addEventListener('input',calc));
+
+  // ---------- Cálculo ----------
+  const deg=r=>r*180/Math.PI;
+  function angle(y,horY){ const cy=st.H/2; return Math.atan((cy-y)/st.f)-Math.atan((cy-horY)/st.f); }
+  function solve(by,ty,horY){
+    const ab=angle(by,horY), at=angle(ty,horY), m=st.mode;
+    const h0=+$('#h0').value, Dk=+$('#dk').value, Hk=+$('#hk').value;
+    if(m==='A'){ if(!(h0>0)) return {err:'Escribe la altura de la cámara.'};
+      if(ab>=-1e-6) return {err:'La base debe quedar por debajo del horizonte para este método.'};
+      const D=h0/Math.tan(-ab); return {ab,at,D,H:h0+D*Math.tan(at),h0}; }
+    if(m==='B'){ if(!(Dk>0)) return {err:'Escribe la distancia al objeto.'};
+      const H=Dk*(Math.tan(at)-Math.tan(ab)); return {ab,at,D:Dk,H,h0:-Dk*Math.tan(ab)}; }
+    if(!(Hk>0)) return {err:'Escribe la altura del objeto.'};
+    const t=Math.tan(at)-Math.tan(ab); if(t<=0) return {err:'La cima debe quedar por encima de la base.'};
+    const D=Hk/t; return {ab,at,D,H:Hk,h0:-D*Math.tan(ab)};
+  }
+  // punto 3D sobre el plano frontal a distancia horizontal D (cámara con cabeceo según el horizonte)
+  function p3(pt,D,horY){ const cx=st.W/2, cy=st.H/2, f=st.f; const p=-Math.atan((cy-horY)/f);
+    const X=pt.x-cx, Y=cy-pt.y, fw=f*Math.cos(p)-Y*Math.sin(p), up=f*Math.sin(p)+Y*Math.cos(p); const s=D/fw; return [X*s,up*s]; }
+  // rayo en ejes del mundo [derecha, arriba, adelante], corrigiendo el cabeceo de la cámara con el horizonte
+  function ray(pt,horY){ const cx=st.W/2, cy=st.H/2, f=st.f; const p=-Math.atan((cy-horY)/f);
+    const X=pt.x-cx, Y=cy-pt.y; return [X, f*Math.sin(p)+Y*Math.cos(p), f*Math.cos(p)-Y*Math.sin(p)]; }
+  // Ancho real de un muro en diagonal. Supone que los dos bordes están a la misma altura real
+  // (su recta apunta al punto de fuga del muro) y que la marca de base está al pie del mismo muro.
+  function widthCalc(L,Rt,Bp,D,horY){
+    if(!L||!Rt||!(D>0)) return null;
+    const r1=ray(L,horY), r2=ray(Rt,horY);
+    const s1=D/r1[2], s2=D/r2[2];
+    const wF=Math.hypot(r1[0]*s1-r2[0]*s2, r1[1]*s1-r2[1]*s2);
+    const front=why=>({w:wF,mode:'front',why,wF});
+    if(!Bp) return front('nobase');
+    const e1=Math.atan2(r1[1],Math.hypot(r1[0],r1[2])), e2=Math.atan2(r2[1],Math.hypot(r2[0],r2[2]));
+    if(e1*e2<=0 || Math.min(Math.abs(e1),Math.abs(e2))<1.5*Math.PI/180) return front('horizon');
+    const rb=ray(Bp,horY), Bx=rb[0]*D/rb[2], Bz=D;
+    const k=r1[1]/r2[1], a1=r1[0], b1=r1[2], a2=r2[0], b2=r2[2];
+    const den=k*(a2*b1-b2*a1); if(Math.abs(den)<1e-9) return front('geom');
+    const t1=((k*a2-a1)*Bz-(k*b2-b1)*Bx)/den, t2=t1*k;
+    if(!(t1>0&&t2>0)) return front('geom');
+    const dx=t2*a2-t1*a1, dz=t2*b2-t1*b1;
+    return {w:Math.hypot(dx,dz), mode:'obl', ang:Math.atan2(Math.abs(dz),Math.abs(dx))*180/Math.PI, wF};
+  }
+  function width(D,horY){ return widthCalc(st.pts.left,st.pts.right,st.pts.base,D,horY); }
+  const fm=(x,d=2)=>isFinite(x)?x.toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+  function showMsg(t){ $('#msg').innerHTML=t?'<div class="msg"></div>':''; if(t) $('#msg').firstChild.textContent=t; }
+
+  function calc(){
+    const m=st.mode;
+    $('#fA').classList.toggle('known',m==='A'); $('#fB').classList.toggle('known',m==='B'); $('#fC').classList.toggle('known',m==='C');
+    $('#fA').hidden=m!=='A'; $('#fB').hidden=m!=='B'; $('#fC').hidden=m!=='C';
+    const set=(id,known)=>{ const g=document.getElementById(id); g.setAttribute('class',known?'k':'u'); g.querySelectorAll('line').forEach(l=>l.setAttribute('class',known?'k':'u')); g.querySelector('text').setAttribute('class',known?'k':'u'); };
+    set('dimh',m==='A'); set('dimD',m==='B'); set('dimH',m==='C');
+    const R=$('#readout');
+    const horY=st.pts.hor?st.pts.hor.y:st.H/2;
+    const dispW=cv.getBoundingClientRect().width||cv.width; const dlx=Math.max(1,st.W/dispW);
+    let wHint='';
+    const wCard=(D,Derr)=>{ const r0=width(D,horY); if(!r0) return '';
+      const d=1.5*dlx, L=st.pts.left, Rt=st.pts.right; let e=0;
+      for(const [qa,qb] of [[{x:L.x-d,y:L.y},Rt],[{x:L.x+d,y:L.y},Rt],[{x:L.x,y:L.y-d},Rt],[{x:L.x,y:L.y+d},Rt],[L,{x:Rt.x-d,y:Rt.y}],[L,{x:Rt.x+d,y:Rt.y}],[L,{x:Rt.x,y:Rt.y-d}],[L,{x:Rt.x,y:Rt.y+d}]]){
+        const q=widthCalc(qa,qb,st.pts.base,D,horY); if(q&&q.mode===r0.mode) e=Math.max(e,Math.abs(q.w-r0.w)); }
+      e=Math.hypot(e,r0.w*(Derr||0)/D);
+      let sub;
+      if(r0.mode==='obl'){ sub='± '+fm(e)+' m · muro girado '+fm(r0.ang,0)+'° · de frente daría '+fm(r0.wF)+' m'; wHint=''; }
+      else { sub='± '+fm(e)+' m · supone vista de frente';
+        wHint=r0.why==='horizon'?'Ancho sin corregir: los bordes están muy cerca de la línea del horizonte. Márcalos al pie del muro (donde toca el suelo) o en su borde superior, ambos a la misma altura real.'
+             :r0.why==='nobase'?'Ancho sin corregir por inclinación: marca también la base al pie del muro.'
+             :'Ancho sin corregir: revisa que los dos bordes estén a la misma altura real del muro.'; }
+      return '<div class="read main"><span class="lbl">Ancho W'+(r0.mode==='obl'?' real':'')+'</span><span class="v">'+fm(r0.w)+' m</span><span class="s">'+sub+'</span></div>'; };
+    if(!st.pts.base||!st.pts.top){
+      const Dk=+$('#dk').value;
+      if(m==='B'&&st.pts.left&&st.pts.right&&Dk>0){ R.innerHTML=wCard(Dk,0); showMsg(wHint); F0(); labels(null); return; }
+      R.innerHTML=''; showMsg(st.img?(st.pts.left&&st.pts.right?'Para el ancho hace falta la distancia: marca base y cima, o elige "Distancia al objeto".':'Marca la base y la cima del objeto en la foto.'):'Toma una foto o abre el ejemplo.'); setFormula(null); labels(null); return; }
+    const r=solve(st.pts.base.y,st.pts.top.y,horY);
+    if(r.err){ R.innerHTML=''; showMsg(r.err); setFormula(null); labels(null); return; }
+    showMsg('');
+    // rango de error: ±1 píxel de pantalla en cada marca
+    const disp=cv.getBoundingClientRect().width||cv.width; const dl=Math.max(1,st.W/disp);
+    let Dmin=Infinity,Dmax=-Infinity,Hmin=Infinity,Hmax=-Infinity;
+    for(const a of [-dl,dl]) for(const b of [-dl,dl]){ const q=solve(st.pts.base.y+a,st.pts.top.y+b,horY); if(q.err) continue;
+      Dmin=Math.min(Dmin,q.D);Dmax=Math.max(Dmax,q.D);Hmin=Math.min(Hmin,q.H);Hmax=Math.max(Hmax,q.H); }
+    const card=(t,v,s,main)=>`<div class="read${main?' main':''}"><span class="lbl">${t}</span><span class="v">${v}</span><span class="s">${s}</span></div>`;
+    R.innerHTML=
+      card('Distancia D',fm(r.D)+' m',m==='B'?'dato':'± '+fm((Dmax-Dmin)/2)+' m',m!=='B')+
+      card('Altura H',fm(r.H)+' m',m==='C'?'dato':'± '+fm((Hmax-Hmin)/2)+' m',m!=='C')+
+      wCard(r.D,m==='B'?0:(Dmax-Dmin)/2)+
+      card('Ángulo a la cima αc',fm(deg(r.at),3)+'°',(r.at>=0?'elevación':'depresión'))+
+      card('Ángulo a la base αb',fm(deg(r.ab),3)+'°',(r.ab>=0?'elevación':'depresión'))+
+      (m!=='A'?card('Altura de cámara h₀',fm(r.h0)+' m','calculada'):'')+
+      card('Resolución',fm(deg(Math.atan(1/st.f))*3600,0)+'″/px','f = '+fm(st.f,0)+' px');
+    setFormula(r); labels(r);
+    showMsg(wHint);
+    const w=width(r.D,horY); if(w) $('#formula').textContent+= w.mode==='obl'
+      ? '\n\nAncho con punto de fuga:\nla recta borde izq.–borde der. es horizontal en el muro;\nsu cruce con el horizonte da el giro del muro = '+fm(w.ang,1)+'°\nW = distancia real entre los dos bordes = '+fm(w.w)+' m'
+      : '\n\nAncho (objeto de frente):\nW ≈ D · (x_der − x_izq) / f = '+fm(w.w)+' m';
+  }
+  function F0(){ $('#formula').textContent='Ancho (objeto de frente):\nW ≈ D · (x_der − x_izq) / f'; }
+  function labels(r){
+    $('#tD').textContent='D'+(r?' = '+fm(r.D)+' m':''); $('#tH').textContent='H'+(r?' = '+fm(r.H)+' m':'');
+    $('#th').textContent='h₀'+(r?' = '+fm(r.h0)+' m':'');
+  }
+  function setFormula(r){
+    const m=st.mode, F=$('#formula');
+    const base='α = atan((cy − y) / f) − atan((cy − y_horizonte) / f)\n';
+    const t={
+      A:'Conoces h₀ (altura de tu cámara):\nD = h₀ / tan(−αb)\nH = h₀ + D · tan(αc)',
+      B:'Conoces D (distancia horizontal):\nH = D · (tan αc − tan αb)',
+      C:'Conoces H (altura del objeto):\nD = H / (tan αc − tan αb)'
+    }[m];
+    let s=base+t;
+    if(r){ const tc=Math.tan(r.at), tb=Math.tan(r.ab);
+      if(m==='A') s+=`\n\nD = ${fm(r.h0)} / ${fm(-tb,4)} = ${fm(r.D)} m\nH = ${fm(r.h0)} + ${fm(r.D)} · ${fm(tc,4)} = ${fm(r.H)} m`;
+      if(m==='B') s+=`\n\nH = ${fm(r.D)} · (${fm(tc,4)} − (${fm(tb,4)})) = ${fm(r.H)} m`;
+      if(m==='C') s+=`\n\nD = ${fm(r.H)} / (${fm(tc,4)} − (${fm(tb,4)})) = ${fm(r.D)} m`; }
+    F.textContent=s;
+  }
+  window.addEventListener('resize',()=>{ drawLoupe(); });
+  window.__teo={st,calc,draw};
+  makeDemo(); calc();
+})();
+</script>
+
+</body>
+</html>
