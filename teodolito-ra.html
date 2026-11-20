@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0d1110">
+<title>Teodolito A26 RA</title>
+<style>
+:root{
+  --bg:#0d1110; --panel:rgba(16,22,20,.86); --ink:#eef3f0; --muted:#9fb0a8; --line:rgba(255,255,255,.16);
+  --accent:#f0a020; --accent-ink:#1a1305; --base:#ff4d42; --top:#29c7ff; --ok:#5cd18e; --warn:#ffb347;
+  --mono:ui-monospace,"SFMono-Regular","Roboto Mono",Menlo,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+body{overflow:hidden}
+[hidden]{display:none!important}
+button{font:600 14px var(--sans);color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:9px;padding:9px 12px;min-height:42px}
+button[aria-pressed="true"]{background:var(--ink);color:#111;border-color:var(--ink)}
+button:disabled{opacity:.4}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent)}
+
+/* ---------- inicio ---------- */
+#start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px max(18px,env(safe-area-inset-right,0px)) 24px max(18px,env(safe-area-inset-left,0px));background:var(--bg);overflow:auto}
+#start .card{max-width:520px;display:flex;flex-direction:column;gap:14px}
+#start h1{margin:0;font-size:30px;letter-spacing:-.01em}
+#start p,#start li{color:var(--muted);line-height:1.5;margin:0}
+#start ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+#start .go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);min-height:54px;font-size:17px}
+#start .err{color:var(--warn);font-size:14px;line-height:1.5}
+#start .links{font-size:13px;display:flex;gap:14px;flex-wrap:wrap}
+#hist0{display:flex;flex-direction:column;gap:6px}
+#hist0 .row{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:13px var(--mono)}
+
+/* ---------- capa RA ---------- */
+#ar{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#ar .ui{pointer-events:auto}
+#labels{position:absolute;inset:0}
+.lab{position:absolute;transform:translate(-50%,-50%);font:600 15px var(--mono);font-variant-numeric:tabular-nums;color:#111;background:var(--accent);
+  padding:3px 8px;border-radius:7px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.lab.live{background:var(--ink)}
+.lab.h{background:var(--top)}
+.lab.a{background:var(--ok)}
+.cross{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px}
+.cross:before,.cross:after{content:"";position:absolute;background:rgba(255,255,255,.9);box-shadow:0 0 2px #000}
+.cross:before{left:12px;top:0;width:2px;height:26px}.cross:after{top:12px;left:0;height:2px;width:26px}
+.top{position:absolute;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 10px) max(14px,env(safe-area-inset-right,0px)) 14px max(14px,env(safe-area-inset-left,0px));
+  display:flex;gap:10px;justify-content:space-between;align-items:flex-start;background:linear-gradient(rgba(0,0,0,.72),rgba(0,0,0,0))}
+.read{display:flex;flex-direction:column}
+.read .l{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.read .v{font:600 30px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.read .s{font:12px var(--mono);color:var(--muted)}
+.right{text-align:right}
+#exit{min-height:36px;padding:6px 12px}
+#status{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);font-size:13px;background:rgba(0,0,0,.6);padding:6px 10px;border-radius:8px;
+  max-width:calc(100% - 32px);text-align:center}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);padding:10px max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) max(14px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:10px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg button{min-width:0;font-size:13px;padding:8px 6px}
+.act{display:grid;grid-template-columns:1fr 2fr 1fr;gap:8px}
+.act .mark{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:16px;min-height:54px}
+.act button{min-width:0;padding:8px 6px}
+.res{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.res > div{border:1px solid var(--line);border-radius:9px;padding:5px 8px;min-width:0}
+.res .l{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.res .v{font:600 17px var(--mono);font-variant-numeric:tabular-nums;color:var(--accent);overflow:hidden;text-overflow:ellipsis}
+.hint{font-size:12px;color:var(--muted);line-height:1.4}
+</style>
+</head>
+<body>
+
+<div id="start">
+  <div class="card">
+    <h1>Teodolito A26 RA</h1>
+    <p>Mide distancias, alturas y áreas cortas con realidad aumentada. El celular sigue su propia posición, así que no tienes que ingresar la altura de la lente ni mantenerlo nivelado.</p>
+    <ol>
+      <li>Usa <b>Google Chrome</b> y buena luz. Las superficies con textura (piso, losetas, pasto, muros con detalle) se detectan mejor.</li>
+      <li>Al iniciar, mueve el celular despacio de lado a lado hasta que aparezca el <b>anillo naranja</b> sobre la superficie.</li>
+      <li>Pon el anillo en el primer punto y toca la pantalla o “Marcar”. Luego en el siguiente punto.</li>
+      <li><b>Altura</b>: marca el pie del objeto en el piso y luego sube la cruz hasta la cima. <b>Área</b>: marca las esquinas y toca “Cerrar”.</li>
+      <li>Rinde mejor hasta unos 5 a 10 m. Para objetos lejanos usa el teodolito en vivo.</li>
+    </ol>
+    <button class="go" id="go">Iniciar realidad aumentada</button>
+    <p class="err" id="err" hidden></p>
+    <div id="hist0"></div>
+    <div class="links"><a href="teodolito-vivo.html">Teodolito en vivo (lejos)</a><a href="teodolito-foto.html">Teodolito por foto</a></div>
+  </div>
+</div>
+
+<div id="ar" hidden>
+  <div id="labels"></div>
+  <div class="cross"></div>
+  <div id="status">Mueve el celular despacio para detectar la superficie</div>
+  <div class="top ui">
+    <div class="read"><span class="l" id="rl">Distancia</span><span class="v" id="rv">—</span><span class="s" id="rs">—</span></div>
+    <div class="read right"><button id="exit">Salir</button><span class="s" id="cam" style="margin-top:6px">—</span></div>
+  </div>
+  <div class="sheet ui">
+    <div class="seg" role="group" aria-label="Qué medir">
+      <button data-mode="D" aria-pressed="true">Distancia</button>
+      <button data-mode="H" aria-pressed="false">Altura</button>
+      <button data-mode="A" aria-pressed="false">Área</button>
+    </div>
+    <div class="res">
+      <div><div class="l" id="l1">Inclinada</div><div class="v" id="v1">—</div></div>
+      <div><div class="l" id="l2">Horizontal</div><div class="v" id="v2">—</div></div>
+      <div><div class="l" id="l3">Desnivel</div><div class="v" id="v3">—</div></div>
+    </div>
+    <div class="act">
+      <button id="undo">Deshacer</button>
+      <button class="mark" id="mark">Marcar punto</button>
+      <button id="done">Terminar</button>
+    </div>
+    <div class="hint" id="hint">Pon el anillo en el primer punto y toca la pantalla o “Marcar punto”.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const fm=(x,d=2)=>isFinite(x)?x.toFixed(d).replace('.',','):'—';
+const fmL=x=>!isFinite(x)?'—':(Math.abs(x)<1?fm(x*100,1)+' cm':fm(x,2)+' m');
+const fmA=x=>!isFinite(x)?'—':fm(x,2)+' m²';
+
+// ---------- vectores ----------
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const len=a=>Math.hypot(a[0],a[1],a[2]);
+const norm=a=>{const l=len(a)||1;return [a[0]/l,a[1]/l,a[2]/l]};
+const mid=(a,b)=>mul(add(a,b),.5);
+const hdist=(a,b)=>Math.hypot(a[0]-b[0],a[2]-b[2]);
+function areaXZ(pts){let s=0;for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length];s+=p[0]*q[2]-q[0]*p[2];}return Math.abs(s)/2;}
+function perim(pts,closed){let s=0;for(let i=0;i<pts.length-(closed?0:1);i++)s+=len(sub(pts[(i+1)%pts.length],pts[i]));return s;}
+
+// ---------- historial (local) ----------
+let hist=[];
+try{hist=JSON.parse(localStorage.getItem('teo_ra_hist')||'[]')||[];}catch(e){hist=[];}
+function saveHist(txt){hist.unshift({t:new Date().toLocaleString('es-PE'),txt});hist=hist.slice(0,30);try{localStorage.setItem('teo_ra_hist',JSON.stringify(hist));}catch(e){}renderHist();}
+function renderHist(){
+  const h=$('#hist0');h.innerHTML='';
+  if(!hist.length)return;
+  const p=document.createElement('p');p.textContent='Últimas mediciones';h.appendChild(p);
+  hist.slice(0,8).forEach(r=>{const d=document.createElement('div');d.className='row';d.textContent=r.txt+'  ·  '+r.t;h.appendChild(d);});
+}
+renderHist();
+
+// ---------- estado ----------
+const st={mode:'D', pts:[], closed:false, done:[], hBase:null, hTop:null,
+  reticle:null, camPos:null, camDir:null, hitSource:null, ref:null, session:null, anchors:false};
+// done: lista de figuras fijadas {type:'D'|'H'|'A', pts:[obj], h}
+// cada punto: {p:[x,y,z], anchor}
+
+// ---------- soporte ----------
+function showErr(html){const e=$('#err');e.hidden=false;e.innerHTML=html;}
+const ARCORE='https://play.google.com/store/apps/details?id=com.google.ar.core';
+async function check(){
+  if(!window.isSecureContext){showErr('La realidad aumentada solo funciona desde una página <b>https</b>. Abre <a href="https://neptaliagiphoyos.github.io/Teodolito/teodolito-ra.html">la versión en GitHub Pages</a>.');return false;}
+  if(!navigator.xr){showErr('Este navegador no tiene WebXR. Abre la página en <b>Google Chrome</b> actualizado en tu Android.');return false;}
+  let ok=false;try{ok=await navigator.xr.isSessionSupported('immersive-ar');}catch(e){}
+  if(!ok){showErr('Chrome no encontró realidad aumentada en este celular. Instala o actualiza <a href="'+ARCORE+'">Servicios de Google Play para RA</a>, reinicia Chrome y vuelve a intentar. Si sigue sin funcionar, tu modelo no es compatible: usa el teodolito en vivo.');return false;}
+  return true;
+}
+check();
+
+// ---------- WebGL ----------
+const canvas=document.createElement('canvas');
+let gl=null, prog=null, buf=null, loc={};
+function initGL(){
+  gl=canvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:true});
+  if(!gl)throw new Error('WebGL no disponible');
+  const vs=`attribute vec3 p;uniform mat4 P,V;uniform float S;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=S;}`;
+  const fs=`precision mediump float;uniform vec4 C;uniform float R;void main(){if(R>0.5){vec2 d=gl_PointCoord-vec2(.5);float r=length(d);if(r>.5)discard;if(r>.36){gl_FragColor=vec4(1.,1.,1.,1.);return;}}gl_FragColor=C;}`;
+  const mk=(t,s)=>{const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
+  prog=gl.createProgram();gl.attachShader(prog,mk(gl.VERTEX_SHADER,vs));gl.attachShader(prog,mk(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);
+  gl.useProgram(prog);
+  loc={p:gl.getAttribLocation(prog,'p'),P:gl.getUniformLocation(prog,'P'),V:gl.getUniformLocation(prog,'V'),C:gl.getUniformLocation(prog,'C'),S:gl.getUniformLocation(prog,'S'),R:gl.getUniformLocation(prog,'R')};
+  buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.enableVertexAttribArray(loc.p);gl.vertexAttribPointer(loc.p,3,gl.FLOAT,false,0,0);
+  gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+}
+const COL={acc:[.94,.63,.13,1],ink:[.93,.95,.94,.95],top:[.16,.78,1,1],ok:[.36,.82,.56,1],base:[1,.3,.26,1],fill:[.36,.82,.56,.22]};
+function drawArr(mode,arr,col,size,round){
+  if(!arr.length)return;
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.DYNAMIC_DRAW);
+  gl.uniform4fv(loc.C,col);gl.uniform1f(loc.S,size||1);gl.uniform1f(loc.R,round?1:0);
+  gl.drawArrays(mode,0,arr.length/3);
+}
+// cinta orientada a la cámara (líneas gruesas)
+function ribbon(out,a,b,w){
+  const c=st.camPos||[0,0,0];const m=mid(a,b);
+  const dist=Math.max(.2,len(sub(m,c)));const n=norm(cross(sub(b,a),sub(c,m)));const o=mul(n,w*dist);
+  const a1=add(a,o),a2=sub(a,o),b1=add(b,o),b2=sub(b,o);
+  out.push(...a1,...a2,...b1,...b1,...a2,...b2);
+}
+function ringTris(mat,r0,r1){
+  const out=[];const N=40;
+  const tr=(x,z)=>[mat[0]*x+mat[8]*z+mat[12],mat[1]*x+mat[9]*z+mat[13],mat[2]*x+mat[10]*z+mat[14]];
+  for(let i=0;i<N;i++){const a=i/N*2*Math.PI,b=(i+1)/N*2*Math.PI;
+    const p0=tr(Math.cos(a)*r0,Math.sin(a)*r0),p1=tr(Math.cos(a)*r1,Math.sin(a)*r1),q0=tr(Math.cos(b)*r0,Math.sin(b)*r0),q1=tr(Math.cos(b)*r1,Math.sin(b)*r1);
+    out.push(...p0,...p1,...q0,...q0,...p1,...q1);}
+  return out;
+}
+
+// ---------- etiquetas ----------
+const labels=$('#labels');let labPool=[],labUsed=0;
+let curView=null;
+function project(p){
+  if(!curView)return null;
+  const P=curView.projectionMatrix,V=curView.transform.inverse.matrix;
+  const x=p[0],y=p[1],z=p[2];
+  const vx=V[0]*x+V[4]*y+V[8]*z+V[12],vy=V[1]*x+V[5]*y+V[9]*z+V[13],vz=V[2]*x+V[6]*y+V[10]*z+V[14],vw=V[3]*x+V[7]*y+V[11]*z+V[15];
+  const cx=P[0]*vx+P[4]*vy+P[8]*vz+P[12]*vw,cy=P[1]*vx+P[5]*vy+P[9]*vz+P[13]*vw,cw=P[3]*vx+P[7]*vy+P[11]*vz+P[15]*vw;
+  if(cw<=0.01)return null;
+  return [(cx/cw*.5+.5)*innerWidth,(1-(cy/cw*.5+.5))*innerHeight];
+}
+function label(p,txt,cls){
+  const s=project(p);if(!s)return;
+  let el=labPool[labUsed];if(!el){el=document.createElement('div');labels.appendChild(el);labPool.push(el);}
+  labUsed++;el.className='lab '+(cls||'');el.style.display='';el.style.left=s[0]+'px';el.style.top=s[1]+'px';
+  if(el.textContent!==txt)el.textContent=txt;
+}
+function endLabels(){for(let i=labUsed;i<labPool.length;i++)labPool[i].style.display='none';labUsed=0;}
+
+// ---------- puntos con ancla ----------
+let lastHit=null;
+async function makePoint(){
+  if(!st.reticle)return null;
+  const pt={p:st.reticle.pos.slice(),anchor:null};
+  if(st.anchors&&lastHit&&lastHit.createAnchor){
+    try{pt.anchor=await lastHit.createAnchor();}catch(e){pt.anchor=null;}
+  }
+  return pt;
+}
+function dropAnchor(pt){if(pt&&pt.anchor&&pt.anchor.delete){try{pt.anchor.delete();}catch(e){}}}
+function updAnchors(frame){
+  const all=[...st.pts];if(st.hBase)all.push(st.hBase);
+  st.done.forEach(f=>{all.push(...f.pts);});
+  for(const pt of all){
+    if(!pt.anchor)continue;
+    if(!frame.trackedAnchors||!frame.trackedAnchors.has(pt.anchor))continue;
+    const pose=frame.getPose(pt.anchor.anchorSpace,st.ref);
+    if(pose){const q=pose.transform.position;pt.p=[q.x,q.y,q.z];}
+  }
+}
+
+// ---------- altura: punto de la vertical más cercano al rayo central ----------
+function heightAt(base){
+  if(!st.camPos||!st.camDir)return null;
+  const O=st.camPos,d=st.camDir,B=base.p;
+  const w0=sub(B,O);const b=d[1];const den=1-b*b;
+  if(den<0.02)return null;
+  const d1=w0[1],e=dot(d,w0);
+  const t=(b*e-d1)/den;
+  return Math.max(0,t);
+}
+
+// ---------- UI ----------
+const MODES={D:{l:['Inclinada','Horizontal','Desnivel'],hint:'Pon el anillo en el primer punto y toca la pantalla o “Marcar punto”. Puedes encadenar varios tramos.'},
+  H:{l:['Altura','Dist. horizontal','Ángulo'],hint:'Marca el pie del objeto en el piso. Luego sube la cruz hasta la cima, sin mover el pie, y toca otra vez.'},
+  A:{l:['Área','Perímetro','Vértices'],hint:'Marca las esquinas en orden sobre el piso. Con 3 o más, toca “Cerrar”.'}};
+function setMode(m){
+  resetCurrent();st.mode=m;
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===m?'true':'false'));
+  const M=MODES[m];$('#l1').textContent=M.l[0];$('#l2').textContent=M.l[1];$('#l3').textContent=M.l[2];
+  $('#hint').textContent=M.hint;$('#done').textContent=m==='A'?'Cerrar':'Terminar';
+  $('#rl').textContent=m==='D'?'Distancia':m==='H'?'Altura':'Área';
+}
+function resetCurrent(){st.pts.forEach(dropAnchor);st.pts=[];dropAnchor(st.hBase);st.hBase=null;st.hTop=null;}
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+
+async function mark(){
+  if(st.mode==='H'&&st.hBase){
+    const h=heightAt(st.hBase);if(h==null){flash('Inclina el celular hacia la cima');return;}
+    const base=st.hBase;st.done.push({type:'H',pts:[base],h});
+    const dh=st.camPos?hdist(st.camPos,base.p):NaN;
+    saveHist('Altura '+fmL(h)+' (a '+fmL(dh)+')');
+    st.hBase=null;return;
+  }
+  const pt=await makePoint();
+  if(!pt){flash('Aún no hay superficie bajo el anillo');return;}
+  if(st.mode==='H'){st.hBase=pt;return;}
+  if(st.mode==='A'&&st.pts.length>=3){ // cerrar si toca cerca del primero
+    if(len(sub(pt.p,st.pts[0].p))<0.05){dropAnchor(pt);finish();return;}
+  }
+  st.pts.push(pt);
+  if(navigator.vibrate)try{navigator.vibrate(15);}catch(e){}
+}
+function finish(){
+  const P=st.pts.map(x=>x.p);
+  if(st.mode==='D'&&st.pts.length>=2){
+    st.done.push({type:'D',pts:st.pts});
+    const tot=perim(P,false);const n=P.length-1;
+    const a=P[0],b=P[P.length-1];
+    saveHist(n===1?('Distancia '+fmL(tot)+' · horiz '+fmL(hdist(a,b))+' · desnivel '+fmL(b[1]-a[1])):('Recorrido '+fmL(tot)+' en '+n+' tramos'));
+    st.pts=[];
+  }else if(st.mode==='A'&&st.pts.length>=3){
+    st.done.push({type:'A',pts:st.pts});
+    saveHist('Área '+fmA(areaXZ(P))+' · perímetro '+fmL(perim(P,true)));
+    st.pts=[];
+  }else if(st.mode==='A'){flash('Marca al menos 3 esquinas');}
+}
+function undo(){
+  if(st.mode==='H'&&st.hBase){dropAnchor(st.hBase);st.hBase=null;return;}
+  if(st.pts.length){dropAnchor(st.pts.pop());return;}
+  const f=st.done.pop();if(f)f.pts.forEach(dropAnchor);
+}
+let flashT=0,flashMsg='';
+function flash(m){flashMsg=m;flashT=performance.now()+1800;}
+$('#mark').addEventListener('click',mark);
+$('#undo').addEventListener('click',undo);
+$('#done').addEventListener('click',finish);
+$('#exit').addEventListener('click',()=>{if(st.session)st.session.end();});
+// que los toques en los botones no cuenten como "marcar"
+document.querySelectorAll('#ar .ui').forEach(el=>el.addEventListener('beforexrselect',e=>e.preventDefault()));
+
+// ---------- sesión ----------
+$('#go').addEventListener('click',async()=>{
+  $('#err').hidden=true;
+  if(!(await check()))return;
+  try{
+    if(!gl)initGL();
+    const session=await navigator.xr.requestSession('immersive-ar',{
+      requiredFeatures:['hit-test','local'],
+      optionalFeatures:['dom-overlay','anchors'],
+      domOverlay:{root:$('#ar')}});
+    st.session=session;
+    st.anchors=!!(session.enabledFeatures?session.enabledFeatures.includes('anchors'):true);
+    await gl.makeXRCompatible();
+    session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});
+    st.ref=await session.requestReferenceSpace('local');
+    const viewer=await session.requestReferenceSpace('viewer');
+    st.hitSource=await session.requestHitTestSource({space:viewer});
+    $('#start').hidden=true;$('#ar').hidden=false;
+    if(!session.domOverlayState){showErr('Este Chrome no muestra los controles sobre la cámara. Actualiza Chrome.');}
+    session.addEventListener('select',()=>{mark();});
+    session.addEventListener('end',()=>{
+      st.session=null;st.hitSource=null;st.reticle=null;
+      st.pts=[];st.hBase=null;st.done=[];
+      $('#ar').hidden=true;$('#start').hidden=false;
+    });
+    session.requestAnimationFrame(onFrame);
+  }catch(e){
+    showErr('No se pudo iniciar la realidad aumentada: '+(e&&e.message?e.message:e)+'. Revisa que Chrome tenga permiso de cámara y que <a href="'+ARCORE+'">Servicios de Google Play para RA</a> esté instalado.');
+  }
+});
+
+// ---------- cuadro a cuadro ----------
+function onFrame(t,frame){
+  const session=frame.session;session.requestAnimationFrame(onFrame);
+  const pose=frame.getViewerPose(st.ref);
+  const layer=session.renderState.baseLayer;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);
+  gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+  if(!pose){setStatus('Se perdió el seguimiento. Apunta a una zona con más textura y luz.');endLabels();return;}
+  const m=pose.transform.matrix;
+  st.camPos=[m[12],m[13],m[14]];st.camDir=norm([-m[8],-m[9],-m[10]]);
+
+  // hit-test
+  st.reticle=null;lastHit=null;
+  if(st.hitSource){
+    const hits=frame.getHitTestResults(st.hitSource);
+    if(hits.length){const hp=hits[0].getPose(st.ref);if(hp){lastHit=hits[0];const hm=hp.transform.matrix;st.reticle={pos:[hm[12],hm[13],hm[14]],mat:hm};}}
+  }
+  if(st.anchors)updAnchors(frame);
+
+  // geometría
+  const tri={acc:[],ink:[],top:[],ok:[],fill:[]};const dots={acc:[],top:[],ok:[]};
+  const W=0.0035;
+  // figuras terminadas
+  for(const f of st.done){
+    const P=f.pts.map(x=>x.p);
+    if(f.type==='D'){for(let i=0;i<P.length-1;i++){ribbon(tri.acc,P[i],P[i+1],W);}P.forEach(p=>dots.acc.push(...p));}
+    if(f.type==='A'){for(let i=0;i<P.length;i++)ribbon(tri.ok,P[i],P[(i+1)%P.length],W);
+      for(let i=1;i<P.length-1;i++)tri.fill.push(...P[0],...P[i],...P[i+1]);P.forEach(p=>dots.ok.push(...p));}
+    if(f.type==='H'){const b=P[0],tp=add(b,[0,f.h,0]);ribbon(tri.top,b,tp,W);dots.top.push(...b,...tp);}
+  }
+  // medición en curso
+  const P=st.pts.map(x=>x.p);const R=st.reticle?st.reticle.pos:null;
+  let live=null;
+  if(st.mode==='D'){
+    for(let i=0;i<P.length-1;i++)ribbon(tri.acc,P[i],P[i+1],W);
+    P.forEach(p=>dots.acc.push(...p));
+    if(P.length&&R)ribbon(tri.ink,P[P.length-1],R,W*.8);
+  }else if(st.mode==='A'){
+    for(let i=0;i<P.length-1;i++)ribbon(tri.ok,P[i],P[i+1],W);
+    P.forEach(p=>dots.ok.push(...p));
+    if(P.length&&R){ribbon(tri.ink,P[P.length-1],R,W*.8);if(P.length>=2)ribbon(tri.ink,R,P[0],W*.5);}
+    if(R&&P.length>=2){const Q=[...P,R];for(let i=1;i<Q.length-1;i++)tri.fill.push(...Q[0],...Q[i],...Q[i+1]);}
+  }else if(st.mode==='H'&&st.hBase){
+    const h=heightAt(st.hBase);const b=st.hBase.p;dots.top.push(...b);
+    if(h!=null){const tp=add(b,[0,h,0]);ribbon(tri.top,b,tp,W);dots.top.push(...tp);live=h;}
+  }
+
+  // dibujar
+  for(const view of pose.views){
+    const vp=layer.getViewport(view);gl.viewport(vp.x,vp.y,vp.width,vp.height);
+    gl.uniformMatrix4fv(loc.P,false,view.projectionMatrix);gl.uniformMatrix4fv(loc.V,false,view.transform.inverse.matrix);
+    drawArr(gl.TRIANGLES,tri.fill,COL.fill);
+    drawArr(gl.TRIANGLES,tri.acc,COL.acc);drawArr(gl.TRIANGLES,tri.ok,COL.ok);drawArr(gl.TRIANGLES,tri.top,COL.top);drawArr(gl.TRIANGLES,tri.ink,COL.ink);
+    const ps=Math.max(14,vp.width/45);
+    drawArr(gl.POINTS,dots.acc,COL.acc,ps,true);drawArr(gl.POINTS,dots.ok,COL.ok,ps,true);drawArr(gl.POINTS,dots.top,COL.top,ps,true);
+    if(st.reticle&&!(st.mode==='H'&&st.hBase)){
+      drawArr(gl.TRIANGLES,ringTris(st.reticle.mat,0.045,0.06),COL.acc);
+      drawArr(gl.POINTS,st.reticle.pos,COL.acc,6,false);
+    }
+    curView=view;
+  }
+
+  // etiquetas y lecturas
+  for(const f of st.done){
+    const Q=f.pts.map(x=>x.p);
+    if(f.type==='D')for(let i=0;i<Q.length-1;i++)label(mid(Q[i],Q[i+1]),fmL(len(sub(Q[i+1],Q[i]))));
+    if(f.type==='A'){const c=Q.reduce((s,p)=>add(s,mul(p,1/Q.length)),[0,0,0]);label(c,fmA(areaXZ(Q)),'a');}
+    if(f.type==='H')label(add(Q[0],[0,f.h/2,0]),fmL(f.h),'h');
+  }
+  const cam=st.camPos;
+  let v1=NaN,v2=NaN,v3='—',big=NaN,sub_='';
+  if(st.mode==='D'){
+    for(let i=0;i<P.length-1;i++)label(mid(P[i],P[i+1]),fmL(len(sub(P[i+1],P[i]))));
+    if(P.length&&R){const a=P[P.length-1];const d=len(sub(R,a));label(mid(a,R),fmL(d),'live');
+      v1=d;v2=hdist(a,R);v3=fmL(R[1]-a[1]);big=perim([...P,R],false);sub_=P.length>1?(P.length+' tramos'):'tramo en curso';}
+    else if(P.length>=2){big=perim(P,false);sub_='sin superficie';}
+  }else if(st.mode==='A'){
+    const Q=R?[...P,R]:P;
+    if(P.length&&R){const a=P[P.length-1];label(mid(a,R),fmL(len(sub(R,a))),'live');}
+    for(let i=0;i<P.length-1;i++)label(mid(P[i],P[i+1]),fmL(len(sub(P[i+1],P[i]))));
+    if(Q.length>=3){big=areaXZ(Q);v1=big;v2=perim(Q,true);}
+    v3=String(P.length);sub_=P.length<3?'faltan '+(3-P.length)+' esquinas':'toca Cerrar o el primer punto';
+  }else if(st.mode==='H'){
+    if(st.hBase&&live!=null){const b=st.hBase.p;label(add(b,[0,live/2,0]),fmL(live),'h live');
+      big=live;v1=live;v2=hdist(cam,b);v3=fm(Math.atan2(live,v2)*180/Math.PI,1)+'°';sub_='toca para fijar la cima';}
+    else if(st.hBase){sub_='apunta más arriba';}
+  }
+  $('#rv').textContent=st.mode==='A'?fmA(big):fmL(big);
+  $('#rs').textContent=sub_||(st.reticle?'anillo a '+fmL(len(sub(st.reticle.pos,cam)))+' de ti':'—');
+  $('#v1').textContent=st.mode==='A'?fmA(v1):fmL(v1);$('#v2').textContent=fmL(v2);$('#v3').textContent=v3;
+  $('#cam').textContent=st.reticle?'superficie detectada':'buscando superficie';
+  $('#mark').textContent=st.mode==='H'&&st.hBase?'Fijar cima':(st.mode==='H'?'Marcar pie':'Marcar punto');
+  $('#undo').disabled=!(st.pts.length||st.hBase||st.done.length);
+  $('#done').disabled=st.mode==='H'||(st.mode==='D'?st.pts.length<2:st.pts.length<3);
+  endLabels();
+
+  if(performance.now()<flashT)setStatus(flashMsg);
+  else if(!st.reticle&&!(st.mode==='H'&&st.hBase))setStatus('Mueve el celular despacio para detectar la superficie');
+  else setStatus('');
+}
+function setStatus(s){const el=$('#status');el.hidden=!s;if(s&&el.textContent!==s)el.textContent=s;}
+})();
+</script>
+</body>
+</html>
